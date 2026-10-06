@@ -1,5 +1,7 @@
 # Hilti Quest
 
+**Self-contained:** `index.html` is the whole game: no web fonts (the font is drawn on the canvas), no CDN links, no network requests, and images are base64 data URLs. It works offline from any single copy of the file.
+
 Single-file pixel-art presentation (`index.html`, canvas 384x216, no dependencies). A hero walks a road
 through five stops; each stop opens a card. Controls: Space next, B back, Enter reveal mystery stop / reopen card, F fullscreen, R restart.
 
@@ -91,13 +93,11 @@ Prompt wording lives in `CONFIG.ui` (`promptSpace` = "PRESS SPACE", `promptEnter
      The bottle is a temporary prop drawn only while the attack and fade play; it is not in `TOOL_ICON`/`TOOL_KEYS` and never enters `earned()`.
   2. The question "WHERE DO I GO TO SCHOOL?" with a grey silhouette + "?" and the prompt "PRESS ENTER TO REVEAL." Enter reveals the
      Texas Tech logo with a short flash and sparkles, and the text "TEXAS TECH." (`card.stage` 0 -> 1).
-     The logo is `texas_tech_logo.jpeg` (must sit next to `index.html`; set by `mystery.logo` in CONFIG). `logoCanvas()` pixelates it by drawing
+     The logo is `texas_tech_logo.jpeg`, embedded in `index.html` as a base64 data URL (the `IMAGES` block at the top; `mystery.logo` is its key; the .jpeg file is kept only as the source). `logoCanvas()` pixelates it by drawing
      it onto a small offscreen canvas (56 px wide before cropping in the popup, 16 on the map sign), then removes the white background in code:
      near-white pixels (all channels > 225, a little slack for JPEG noise) connected to the image edge become transparent, white inside the logo
      stays, and the canvas is cropped to the logo. It is scaled up with `imageSmoothingEnabled = false`. The "?" silhouette is that same shape
-     filled grey. Reading pixels needs a same-origin image: from `file://` Chrome blocks it, so the logo then falls back to an un-keyed plaque
-     (white background kept); serve the folder over http (or open with `--allow-file-access-from-files`) for the transparent version.
-     If the image fails to load, the drawn Double T (`drawTTEmblem`) is used. The revealed Texas Tech sign on the overview map shows the same logo, small, left of the name.
+     filled grey. Because the image is a data URL, reading its pixels works even from `file://`. If the image fails to load, the drawn Double T (`drawTTEmblem`) is used. The revealed Texas Tech sign on the overview map shows the same logo, small, left of the name.
   3. Space then closes the card. The scripted card is exclusive: Enter acts (use sanitizer, reveal) and Space only continues once the answer is shown.
   The map's school has a Texas flag on its flagpole (`texasFlag`): a blue bar with a white star on the left, white over red on the right,
   rippling gently (frozen under reduced motion).
@@ -186,9 +186,16 @@ The Hilti card is a four-screen sequence (`card.stage` 0-3, `card.st` = seconds 
 draws the scenes, the text box shows that screen's text. The stop's `line` is the first screen's heading; the rest is in `finale`.
 0. **Value towers**: four stone towers (`finale.values`, placeholder names INTEGRITY / COURAGE / TEAMWORK / COMMITMENT) light up one after another
    (windows glow, flags turn gold); each name appears in the text box as its tower lights. (The map castle has two towers; these four exist only in this scene.)
-1. **Globe**: a pixel globe (`drawGlobe`, 2x2 blocks, tilted 25 degrees, slowly turning; still under reduced motion) with a red pin per entry of
-   `finale.places` (`{ name, lat, lon }`; LUBBOCK, CHICAGO, SCHAAN are placeholders: add yours). Pins pop in one by one and only show on the visible side.
-   Continents come from the coarse `LAND_ROWS` table. Text: `finale.globe` (one row per `\n`).
+1. **Globe**: the castle scene is a stone tower with a glowing arched window and a small spinning globe in it. Prompt: "PRESS ENTER TO ZOOM IN."
+   (`finale.zoomIn`; Space does nothing yet). Enter zooms the camera in (0.9s) until the globe fills most of the screen over the dimmed castle
+   (`drawGlobeZoom`). The globe (`globeBuf`) is a rotating sphere: blue seas, green land, sand, ice, a light limb/atmosphere glow, slow idle spin until
+   the first city. Land comes from a hand-made 128x64 equirectangular mask (`LAND_MASK`, rasterised once from the continent outlines in `CONTINENTS`),
+   sampled per pixel into an 80x80 (40x40 in the window) offscreen canvas that is scaled up with smoothing off. Each Space (prompt "PRESS SPACE")
+   eases the globe ~1s (smoothstep, shortest way round) to centre the next city of `finale.cities` (`{ name, lat, lon, label }`: London, Shanghai,
+   Munich), then a pin drops in with a small pop and a label panel shows its `label`. Pins stay on the globe. After the last city the prompt is
+   `finale.cont` ("PRESS ENTER TO CONTINUE."); Enter zooms back out to the castle (text `finale.globe` shows), and Space moves on. Only the working key's
+   prompt is shown at each moment. State is `card.g` (`mode` 0 castle / 1 zoomed / 2 back; `updateGlobe`, `startRot`). Reduced motion: no zoom animation,
+   no idle spin, no easing (it jumps to each city), no drop or pop.
 2. **Steps**: three numbered stone steps rise toward the castle on its hill. Text: `finale.steps`, one numbered row each (scale 1 so all three fit).
 3. **Hat + toolkit**: the hard hat falls onto her head (`drawParty` drops), then all seven toolkit compartments light up in turn (gold, `drawToolkitBar`),
    then `finale.quote` and `finale.done` ("TOOLKIT COMPLETE.") show. Space during this fast-forwards, then finishes the quest. The hat counts as earned only
