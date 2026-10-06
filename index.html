@@ -8,15 +8,11 @@
   html,body{margin:0;height:100%;background:#07060c;overflow:hidden;cursor:default}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#07060c}
   canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
-  #hint{position:fixed;left:10px;bottom:7px;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;
-        color:#4a4658;letter-spacing:1.5px;user-select:none;pointer-events:none}
-  #wrap:fullscreen #hint,#wrap:-webkit-full-screen #hint{display:none}
 </style>
 </head>
 <body>
 <div id="wrap">
-  <canvas id="c" width="384" height="216"></canvas>
-  <div id="hint">SPACE NEXT &middot; B BACK &middot; ENTER REVEAL / CARD &middot; F FULLSCREEN &middot; R RESTART</div>
+  <canvas id="c" width="768" height="432"></canvas>
 </div>
 <script>
 "use strict";
@@ -34,7 +30,7 @@
    (an entry may be {gear, note}: the note shows as a card line right before that item
    drops; keys: club clock heart glasses shield excel hat), art (landmark), team (N
    teammates follow after a win), sprite (boss look), weapon (item thrown at the boss),
-   mystery ({label, title} while hidden), labelDx (map label shift), isCastle.
+   mystery ({label, title} while hidden), isCastle.
    =========================================================================== */
 const CONFIG = {
 
@@ -62,7 +58,7 @@ const CONFIG = {
 
     { title: "MASKED RIDER CAPITAL",
       boss: "THE ROLL-UP TWISTER", line: "WEAPON: EXCEL.", loot: "FINANCIAL MODELING AND A DEEP READ ON PRIVATE MARKETS.",
-      art: "office", reward: ["excel"], sprite: "tornado", weapon: "excel", labelDx: 30 },
+      art: "office", reward: ["excel"], sprite: "tornado", weapon: "excel" },
 
     { title: "HILTI",
       boss: "", line: "WHERE IT ALL BUILDS.", loot: "",
@@ -87,18 +83,23 @@ const CONFIG = {
 
 
 /* ---------------------------------------------------------------- canvas -- */
-const W = 384, H = 216;
+// Game logic and layout use a 384x216 grid; the canvas is 768x432 (SS = 2 device pixels per grid unit),
+// so detailed art (hero, teammates, buildings) is drawn on a half-unit grid via hi() / drawHeroHi().
+const W = 384, H = 216, SS = 2, CW = W * SS, CH = H * SS;
 const cv  = document.getElementById("c");
+cv.width = CW; cv.height = CH;
 let ctx = cv.getContext("2d", { alpha: false });
 const mainCtx = ctx;
-const sil = document.createElement("canvas"); sil.width = 384; sil.height = 216;
+const sil = document.createElement("canvas"); sil.width = CW; sil.height = CH;
 const silCtx = sil.getContext("2d");
-ctx.imageSmoothingEnabled = false;
+for (const c of [mainCtx, silCtx]) { c.setTransform(SS, 0, 0, SS, 0, 0); c.imageSmoothingEnabled = false; }
 
-function fit() {
-  const s = Math.max(1, Math.min(window.innerWidth / W, window.innerHeight / H));
-  cv.style.width  = Math.floor(W * s) + "px";
-  cv.style.height = Math.floor(H * s) + "px";
+function fit() {                      // whole device pixels per canvas pixel keeps the image crisp
+  const dpr = window.devicePixelRatio || 1;
+  let s = Math.min(window.innerWidth * dpr / CW, window.innerHeight * dpr / CH);
+  if (s >= 1) s = Math.floor(s);
+  cv.style.width  = (CW * s / dpr) + "px";
+  cv.style.height = (CH * s / dpr) + "px";
 }
 window.addEventListener("resize", fit);
 fit();
@@ -107,6 +108,9 @@ fit();
 function rect(x, y, w, h, col) {
   ctx.fillStyle = col;
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+function hi(x, y, fn) {            // run fn in a local half-unit pixel grid whose origin is (x, y)
+  ctx.save(); ctx.translate(x, y); ctx.scale(0.5, 0.5); fn(); ctx.restore();
 }
 function frame(x, y, w, h, t, col) { // hollow rect, thickness t
   rect(x, y, w, t, col); rect(x, y + h - t, w, t, col);
@@ -222,7 +226,8 @@ const PAL = {
   s: "#f2c396", h: "#5a3a22", b: "#2f6fd0", p: "#2b3550", o: "#4a3322",
   g: "#9aa0b0", y: "#cdd3de", n: "#6b7280", e: "#f2b705", t: "#7a5a3a",
   a: "#f2b705", c: "#2f9e4f", m: "#8a4fc9", j: "#2a2233", l: "#d9a441",
-  x: "#1d6f42", u: "#33c481", f: "#9fd3ff", i: "#c8551f"
+  x: "#1d6f42", u: "#33c481", f: "#9fd3ff", i: "#c8551f",
+  B: "#4f8fe8", D: "#244f96", q: "#d9a574", Q: "#7a5230", P: "#3d4a6e"
 };
 function spr(rows, x, y, s, flip, tint) {
   s = s || 1;
@@ -275,13 +280,7 @@ const SPR_BOSS_TORNADO = [         // The Roll-Up Twister: a small angry funnel
   "..kgggggnk..", "...kggggk...", "....kggk....", ".....kgk....", "....kgk.....", ".....kk....."
 ];
 const BOSS_SPRITES = { ball: SPR_BOSS, exam: SPR_BOSS_EXAM, dragon: SPR_BOSS_DRAGON, tornado: SPR_BOSS_TORNADO };
-const BOSS_SCALE = { tornado: 3 };       // default 4; the twister is small
-const MATE_TOP = [".kkkk.", "khhhhk", "kssssk", ".ssss.", "kbbbbk", "sbbbbs", ".bbbb."];
-const MATE_STYLES = [{ b: "c", h: "l" }, { b: "m", h: "i" }];   // blonde, ginger
-const MATE_LEGS_A = [".p..p.", ".o..o."], MATE_LEGS_B = ["p....p", "o....o"];
-function mateRows(style, alt) {
-  return MATE_TOP.map(r => r.replace(/b/g, style.b).replace(/h/g, style.h)).concat(alt ? MATE_LEGS_B : MATE_LEGS_A);
-}
+const BOSS_SCALE = { tornado: 3 };       // default 4 (48px); the twister is small
 
 const SPR_EXCEL  = ["xxxxxxx", "xuuwuux", "xuuwuux", "xwwwwwx", "xuuwuux", "xuuwuux", "xxxxxxx"];
 
@@ -349,10 +348,10 @@ const STOPS = CONFIG.stops.map((s, i) => {
 /* ------------------------------------------------------------- landmarks -- */
 // dx/dy: offset of the landmark base from the stop; l/r/h: footprint used to keep scenery clear
 const LAND = {
-  school: { dx: -4, dy: -12, l: 20, r: 20, h: 36, draw: drawSchool },
-  campus: { dx: 30, dy: -6,  l: 30, r: 24, h: 54, draw: drawCampus },
-  hall:   { dx: 0,  dy: -8,  l: 24, r: 34, h: 57, draw: drawHall },
-  office: { dx: 0,  dy: -8,  l: 18, r: 28, h: 47, draw: drawOffice }
+  school: { dx: -4, dy: -12, l: 46, r: 27, h: 38, draw: drawSchool },
+  campus: { dx: 30, dy: -6,  l: 30, r: 41, h: 56, draw: drawCampus },
+  hall:   { dx: 0,  dy: -8,  l: 42, r: 38, h: 78, draw: drawHall },
+  office: { dx: 0,  dy: -8,  l: 18, r: 30, h: 60, draw: drawOffice }
 };
 STOPS.forEach(st => {
   const L = LAND[st.art];
@@ -651,6 +650,109 @@ function drawProp(o) {
     ell(o.x, o.y - 1, 3, 2, "#8e93a5"); rect(o.x - 2, o.y - 2, 2, 1, "#c4c8d6"); rect(o.x + 1, o.y, 2, 1, "#6b7080");
   }
 }
+/* ------------------------------------------------- label signs + hint bar -- */
+const HINT_BAR = { x: 218, y: 3, w: 164, h: 21 };
+function drawHintBar() {                       // controls, kept in a small bar clear of every label
+  rect(HINT_BAR.x, HINT_BAR.y, HINT_BAR.w, HINT_BAR.h, "rgba(20,16,32,0.6)");
+  frame(HINT_BAR.x, HINT_BAR.y, HINT_BAR.w, HINT_BAR.h, 1, "rgba(255,255,255,0.3)");
+  text("SPACE NEXT  B BACK  F FULL", HINT_BAR.x + 4, HINT_BAR.y + 4, 1, "#cfcbe6", "left");
+  text("ENTER REVEAL/CARD  R RESET", HINT_BAR.x + 4, HINT_BAR.y + 12, 1, "#cfcbe6", "left");
+}
+
+const hit = (a, b, m) => a[0] - m < b[0] + b[2] && a[0] + a[2] + m > b[0] && a[1] - m < b[1] + b[3] && a[1] + a[3] + m > b[1];
+const ROAD_BLOCKS = (() => {                   // road + the head-room the hero and teammates occupy above it
+  const out = [];
+  for (let i = 0; i < PATH.pts.length; i += 2) {
+    const q = PATH.pts[i], w = ROADW(q[1]);
+    out.push([q[0] - w - 4, q[1] - 19, 2 * w + 9, 19 + w + 5]);
+  }
+  return out;
+})();
+function staticBlocks() {                      // everything a sign must stay off, besides other signs
+  const r = [[3, 2, 104, 26], [166, 2, 52, 18], [HINT_BAR.x - 1, HINT_BAR.y - 1, HINT_BAR.w + 2, HINT_BAR.h + 2],
+             [196, H - 44, W - 196, 44], [296, 24, 84, 74],
+             [POND.x - POND.rx - 1, POND.y - POND.ry - 1, 2 * POND.rx + 3, 2 * POND.ry + 5], [0, 178, 28, 30]];
+  for (const st of STOPS) {
+    r.push([st.x - 10, st.y - 30, 30, 34]);    // hero (+ club) standing at the stop
+    if (st.art) {
+      const L = LAND[st.art];
+      r.push([st.lx - L.l - 2, st.ly - L.h - 4, L.l + L.r + 4, L.h + 9], [st.lx - 11, st.ly - L.h - 38, 22, 34]);
+    }
+  }
+  return r;
+}
+let signSet = null, signKey = "";
+function layoutSigns() {                       // choose a spot for every label: free of obstacles, as close to its stop as possible
+  const items = [{ text: CONFIG.startLabel, x: pathAt(0).x, y: pathAt(0).y }]
+    .concat(STOPS.map(st => ({ text: labelOf(st), x: st.x, y: st.y, badge: true })));
+  const blocks = staticBlocks();
+  const per = items.map(it => {                // best statically-free candidates for this label, nearest first
+    const lines = wrap(it.text, 14), w = Math.max(...lines.map(l => textW(l, 1))) + 8, h = 6 + 8 * lines.length - 1;
+    const eh = it.badge ? 11 : 0, cand = [];     // eh: room for the status tab on top
+    for (let dx = -190; dx <= 190; dx += 3) for (let dy = -130; dy <= 130; dy += 3) {
+      const r = [Math.round(it.x + dx - w / 2), Math.round(it.y + dy - h / 2), w, h];
+      if (r[0] < 3 || r[1] - eh < 3 || r[0] + w > W - 3 || r[1] + h + 4 > H - 3) continue;
+      cand.push({ r, e: [r[0], r[1] - eh, w, h + eh], score: Math.hypot(dx, dy * 1.2) + (dy < 0 ? 6 : 0) });
+    }
+    cand.sort((a, b) => a.score - b.score);
+    const free = [];
+    for (const c of cand) {
+      if (!blocks.some(b => hit(c.e, b, 1)) && !ROAD_BLOCKS.some(b => hit(c.e, b, 1))) free.push(c);
+      if (free.length >= 350) break;
+    }
+    return { lines, badge: it.badge, px: it.x, py: it.y, free: free.length ? free : cand.slice(0, 1) };
+  });
+  const n = per.length;
+  const tryOrder = order => {                  // place greedily in this order; signs may not touch each other
+    const placed = [], pick = [];
+    let total = 0;
+    for (const i of order) {
+      const c = per[i].free.find(c => !placed.some(b => hit(c.e, b, 2)));
+      total += c ? c.score : 1e4;
+      const use = c || per[i].free[0];
+      placed.push(use.e); pick[i] = use;
+    }
+    return { total, pick };
+  };
+  let best = null;
+  const perm = (arr, k) => {                   // every placement order (n! is small)
+    if (k === arr.length) { const t = tryOrder(arr); if (!best || t.total < best.total) best = t; return; }
+    for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; perm(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; }
+  };
+  perm([...Array(n).keys()], 0);
+  return per.map((p, i) => ({ lines: p.lines, r: best.pick[i].r, px: p.px, py: p.py, badge: p.badge }));
+}
+function drawSigns() {                         // dark wooden signs with a light border; drawn last so nothing covers them
+  const key = STOPS.map(labelOf).join("|");
+  if (key !== signKey) { signSet = layoutSigns(); signKey = key; }
+  signSet.forEach((sg, i) => {
+    const [x, y, w, h] = sg.r, cx = x + (w >> 1), cy = y + (h >> 1);
+    const locked = i > 0 && (i - 1 > idx || (i - 1 === idx && state === S.WALK && !walk.back));
+    const d = Math.hypot(sg.px - cx, sg.py - cy);
+    if (d > 20) for (let t = 9; t < d - 8; t += 4) {   // dotted line from the stop to its sign
+      const k = t / d;
+      rect(sg.px + (cx - sg.px) * k, sg.py + (cy - sg.py) * k - 1, 1, 1, "rgba(255,255,255,0.7)");
+    }
+    rect(x + 1, y + h + 3, w - 2, 1, "rgba(0,0,0,0.25)");
+    rect(cx - 1, y + h, 3, 3, "#3a2a1c");                              // post
+    rect(x, y, w, h, "#e8d6ab");                                       // light border
+    rect(x + 1, y + 1, w - 2, h - 2, "#4a3322");                       // dark wood
+    rect(x + 1, y + 1, w - 2, 1, "#6b4a2c"); rect(x + 2, y + h - 3, w - 4, 1, "#3a2a1c");
+    rect(x + 2, y + 2, 1, 1, "#c4b79a"); rect(x + w - 3, y + 2, 1, 1, "#c4b79a");   // nails
+    sg.lines.forEach((ln, j) => text(ln, cx, y + 3 + j * 8, 1, locked ? "#b9c0cc" : "#ffffff", "center"));
+    if (!sg.badge) return;                                               // status tab attached to the sign's top edge
+    const st = STOPS[i - 1], status = i - 1 < idx ? "done" : i - 1 === idx ? (state === S.WALK && !walk.back ? "locked" : "next") : "locked";
+    const by = y - 10 - (status === "next" ? Math.round(Math.abs(Math.sin(timeNow * 5)) * 2) : 0);
+    if (status === "next") {                                              // bobbing arrow, pointing down at the sign
+      for (let k = 0; k < 4; k++) rect(cx - 4 + k, by + 2 + k, 9 - k * 2, 2, "#ffffff");
+      return;
+    }
+    const col = status === "done" ? "#2f9e4f" : "#8d93a1", lite = status === "done" ? "#47c169" : "#aab0bd";
+    rect(cx - 7, y - 11, 15, 12, "#1b1426"); rect(cx - 6, y - 10, 13, 10, col); rect(cx - 6, y - 10, 13, 2, lite);
+    if (status === "done") spr(SPR_CHECK, cx - 3, y - 8, 1); else spr(SPR_LOCK, cx - 3, y - 9, 1, false, "#f0f2f7");
+  });
+}
+
 function drawStartMarker() {
   const p = pathAt(0);
   const x = Math.round(p.x) - 7, y = Math.round(p.y);
@@ -659,132 +761,268 @@ function drawStartMarker() {
   rect(x + 1, y - 18, 11, 7, "#f2b705");
   rect(x + 1, y - 18, 11, 1, "#ffd95e");
   rect(x + 11, y - 18 + waveN, 2, 7, "#f2b705");
-  text(CONFIG.startLabel, x + 6, y + 6, 1, "#ffffff", "center", "#1b1426");
 }
 
-function drawCastle(cx, baseY) {
-  const stone = "#b9bcc9", stoneD = "#8e93a5", stoneL = "#d4d7e2";
-  const bob = Math.sin(timeNow * 3) > 0 ? 1 : 0;
-  // towers
-  for (const tx of [cx - 26, cx + 16]) {
-    rect(tx, baseY - 44, 10, 44, stone);
-    rect(tx, baseY - 44, 2, 44, stoneL);
-    rect(tx + 8, baseY - 44, 2, 44, stoneD);
-    for (let i = 0; i < 3; i++) rect(tx + i * 4, baseY - 48, 3, 4, stone);
-    // roof
-    for (let i = 0; i < 7; i++) rect(tx - 2 + i, baseY - 55 - (3 - Math.abs(i - 3)) * 2, 1, 7 + (3 - Math.abs(i - 3)) * 2, "#d2051e");
-    rect(tx + 4, baseY - 66, 1, 5, "#8e8e8e");
-    rect(tx + 5, baseY - 66, 4 + bob, 3, "#ffffff");
-  }
-  // keep
-  rect(cx - 18, baseY - 34, 36, 34, stone);
-  rect(cx - 18, baseY - 34, 36, 2, stoneL);
-  rect(cx - 18, baseY - 4, 36, 4, stoneD);
-  for (let i = 0; i < 5; i++) rect(cx - 18 + i * 8, baseY - 38, 5, 4, stone);
-  // windows
-  for (const wx of [cx - 11, cx + 7]) { rect(wx, baseY - 28, 4, 6, "#2b3550"); rect(wx, baseY - 28, 4, 2, "#1d2438"); }
-  // banner
-  rect(cx - 5, baseY - 30, 10, 14, "#d2051e");
-  rect(cx - 5, baseY - 30, 10, 2, "#ff3348");
-  rect(cx - 3, baseY - 26, 6, 2, "#ffffff");
-  rect(cx - 3, baseY - 23, 2, 5, "#ffffff");
-  rect(cx + 1, baseY - 23, 2, 5, "#ffffff");
-  // gate
-  rect(cx - 7, baseY - 14, 14, 14, "#3a2a1c");
-  rect(cx - 6, baseY - 12, 12, 12, "#6b4a2c");
-  rect(cx - 1, baseY - 12, 2, 12, "#3a2a1c");
-  rect(cx - 6, baseY - 13, 12, 1, "#8a6238");
-  // mortar speckle
-  for (let i = 0; i < 18; i++) {
-    const px = cx - 18 + ((i * 7) % 36), py = baseY - 33 + ((i * 11) % 30);
-    rect(px, py, 1, 1, stoneD);
-  }
-}
 
 /* ------------------------------------------------------------- landmarks -- */
 const wave = () => (Math.sin(timeNow * 4) > 0 ? 1 : 0);
 
-function drawCampus(x, b) {            // brick hall + clock tower + putting green
-  const gx = x - 16, gy = b - 3;
-  ell(gx, gy, 14, 4, "#3f8a3a"); ell(gx, gy, 12, 3, "#7bd466"); ell(gx - 4, gy - 1, 5, 1, "#93e47e");
-  rect(gx + 1, gy, 3, 1, "#1b1426");
-  rect(gx + 2, gy - 14, 1, 14, "#ffffff"); rect(gx + 3, gy - 14, 6 + wave(), 4, "#d2051e");
-  rect(gx - 7, gy + 1, 2, 2, "#ffffff"); rect(gx - 7, gy + 2, 2, 1, "#c4c8d6");
-  const hx = x - 2;
-  rect(hx, b - 18, 24, 18, "#a5503c"); rect(hx, b - 18, 24, 2, "#c2644d"); rect(hx + 22, b - 18, 2, 18, "#7e3a2b");
-  for (let r = 0; r < 4; r++) rect(hx, b - 14 + r * 4, 24, 1, "#8a4130");
-  rect(hx - 1, b - 21, 26, 3, "#4a3a5a"); rect(hx - 1, b - 21, 26, 1, "#6a5a7e");
-  for (const wx of [hx + 2, hx + 18]) {
-    rect(wx, b - 14, 4, 6, "#2b3550"); rect(wx + 1, b - 13, 2, 4, "#f6d977"); rect(wx - 1, b - 8, 6, 1, "#d4d7e2");
+// All buildings below are drawn inside hi(): a half-unit pixel grid, origin = centre of the base.
+function bricks(x, y, w, h, base, mortar, light) {
+  rect(x, y, w, h, base);
+  for (let r = 0; r * 4 < h; r++) {
+    rect(x, y + r * 4 + 3, w, 1, mortar);
+    for (let jx = x + (r % 2) * 4; jx < x + w; jx += 8) rect(jx, y + r * 4, 1, 3, mortar);
   }
-  rect(hx + 10, b - 10, 4, 10, "#4a3322"); rect(hx + 11, b - 12, 2, 2, "#4a3322"); rect(hx + 9, b - 1, 6, 1, "#b9bcc9");
-  const tx = x + 4;                    // tower
-  rect(tx, b - 40, 12, 22, "#a5503c"); rect(tx, b - 40, 2, 22, "#c2644d"); rect(tx + 10, b - 40, 2, 22, "#7e3a2b");
-  for (let r = 0; r < 5; r++) rect(tx, b - 36 + r * 4, 12, 1, "#8a4130");
-  rect(tx + 3, b - 36, 6, 6, "#1b1426"); rect(tx + 4, b - 35, 4, 4, "#ffffff");
-  rect(tx + 6, b - 35, 1, 3, "#1b1426"); rect(tx + 6, b - 33, 2, 1, "#1b1426");
-  rect(tx + 5, b - 27, 2, 5, "#2b3550");
-  rect(tx - 1, b - 42, 14, 2, "#b9bcc9");
-  for (let r = 0; r < 7; r++) {
-    rect(tx - 1 + r, b - 43 - r, 14 - r * 2, 1, "#3b3358");
-    rect(tx - 1 + r, b - 43 - r, Math.max(1, (14 - r * 2) >> 1), 1, "#4a4070");
+  for (let i = 0; i < (w * h) / 60; i++) rect(x + ((i * 37) % Math.max(1, w - 4)), y + ((i * 17) % Math.max(1, h - 3)), 3, 2, light);
+}
+function cone(cx, yBase, wBase, hh, a, b) {      // pointed roof, narrowing to the top
+  for (let r = 0; r < hh; r++) {
+    const w = Math.max(2, Math.round(wBase * (1 - r / hh)));
+    rect(cx - (w >> 1), yBase - r, w, 1, r % 3 === 2 ? b : a);
+    rect(cx - (w >> 1), yBase - r, Math.max(1, w >> 2), 1, "rgba(255,255,255,0.14)");
   }
-  rect(tx + 6, b - 54, 1, 5, "#8e8e8e"); rect(tx + 7, b - 54, 5 + wave(), 3, "#d2051e");
 }
 
-function drawOffice(x, b) {            // glass mid-rise with a wing
-  rect(x + 15, b - 20, 13, 20, "#98abc2"); rect(x + 15, b - 20, 13, 2, "#b3c3d6");
-  for (const wy of [b - 16, b - 9]) for (const wx of [x + 17, x + 23]) rect(wx, wy, 4, 4, "#cfeaff");
-  rect(x - 15, b - 34, 30, 34, "#7d93ac"); rect(x + 11, b - 34, 4, 34, "#667b94"); rect(x - 15, b - 34, 2, 34, "#9fb2c8");
-  rect(x - 16, b - 37, 32, 3, "#4a5568"); rect(x - 16, b - 37, 32, 1, "#6a7588");
-  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
-    const lit = (r * 3 + c * 5) % 4 < 2, wx = x - 12 + c * 7, wy = b - 31 + r * 6;
-    rect(wx, wy, 5, 4, "#2b3550"); rect(wx + 1, wy, 3, 3, lit ? "#ffe28a" : "#cfeaff");
+function lancet(cx, yb, w, h, col) {   // pointed (gothic) arch shape: straight sides below, pointed top; base at yb
+  const rise = Math.min(h, Math.round(w * 0.95));
+  rect(cx - (w >> 1), yb - h + rise, w, h - rise, col);
+  for (let r = 0; r < rise; r++) {
+    const half = Math.max(0, Math.round((w / 2) * (1 - Math.pow((r + 0.5) / rise, 1.4))));
+    rect(cx - half, yb - h + rise - 1 - r, half * 2 + (w % 2), 1, col);
   }
-  rect(x - 10, b - 41, 8, 4, "#5a6578"); rect(x - 9, b - 41, 6, 1, "#7a8598");
-  rect(x + 9, b - 47, 1, 10, "#4a5568"); rect(x + 8, b - 48, 3, 2, Math.sin(timeNow * 5) > 0 ? "#ff3348" : "#8e0313");
-  rect(x - 6, b - 9, 12, 9, "#2b3550"); rect(x - 5, b - 8, 5, 8, "#8fc4e8"); rect(x + 1, b - 8, 4, 8, "#6aa8d4");
-  rect(x - 8, b - 12, 16, 3, "#d2051e"); rect(x - 8, b - 12, 16, 1, "#ff3348");
-  ell(x - 12, b - 1, 4, 2, "#3b9349"); ell(x + 12, b - 1, 4, 2, "#2f7a3b");
+}
+const RAIDER = [                       // masked rider: black hat + mask over a white scarf (flag emblem)
+  "..kkkkkk..", ".kkkkkkkk.", "kkkkkkkkkk", ".ssssssss.", ".kwwkkwwk.", ".ssssssss.", "..wwwwww..", "...wwww..."
+];
+const RIDER_LOGO = [                   // Masked Rider Capital logo: black hat, mask with white eye slits, red scarf
+  "...kkkkkk...", "..kkkkkkkk..", "kkkkkkkkkkkk", "..kkkkkkkk..", ".kkwwkkwwkk.", ".kkkkkkkkkk.",
+  "..kkkkkkkk..", ".rrrrrrrrrr.", "..rrrrrrrr..", "...rrrrrr..."
+];
+
+function drawSchool(x, b) {            // closed schoolhouse: shut gate + CLOSED sign, empty bleachers, faded graduation banner
+  hi(x, b, () => {
+    const wv = wave() * 2;
+    ell(-20, 0, 66, 3, "rgba(20,40,20,0.28)");
+    // empty bleachers on the left
+    for (const lx of [-88, -45]) { rect(lx, -30, 2, 30, "#6b7280"); rect(lx + 1, -30, 1, 30, "#4a5568"); }
+    rect(-88, -31, 45, 2, "#9aa0b0");                                      // top rail
+    for (let t = 0; t < 4; t++) {
+      const y = -6 - t * 6;
+      rect(-87, y, 43, 2, "#d4d7e2"); rect(-87, y + 2, 43, 2, "#8e93a5");                    // seat plank + riser
+      rect(-87 + t * 2, y - 1, 43 - t * 4, 1, "#e8ecf4");
+    }
+    for (let i = 0; i < 6; i++) rect(-86 + i * 8, -30, 1, 28, "#4a5568");   // bracing
+    rect(-70, -9, 2, 4, "#2f6fd0"); rect(-69, -10, 1, 1, "#ffffff");           // a forgotten water bottle
+    // school
+    rect(34, -68, 2, 68, "#c4c8d6"); rect(35, -68, 1, 68, "#9aa0b0"); ell(35, -71, 2, 2, "#f2b705");
+    rect(36, -66, 16 + wv, 10, "#d2051e"); rect(36, -63, 16 + wv, 2, "#ffffff"); rect(36, -66, 16 + wv, 1, "#ff3348");
+    rect(-26, -30, 52, 30, "#d8c295"); rect(-26, -30, 52, 2, "#e8d6ab"); rect(24, -30, 2, 30, "#b39a6b");
+    for (let i = 0; i < 7; i++) rect(-26, -27 + i * 4, 52, 1, "#c9b37f");
+    rect(-26, -3, 52, 3, "#8a7a5a"); rect(-26, -3, 52, 1, "#a8977a");
+    for (let r = 0; r < 14; r++) {
+      rect(-30 + r, -31 - r, 60 - 2 * r, 1, r % 2 ? "#8e3a2b" : "#a5503c");
+      for (let tx = -28 + r + (r % 2) * 3; tx < 28 - r; tx += 6) rect(tx, -31 - r, 1, 1, "#6e2a1e");
+    }
+    rect(-30, -31, 60, 2, "#6e2a1e"); rect(-28, -29, 56, 2, "rgba(0,0,0,0.16)");
+    rect(-8, -58, 16, 14, "#e8d6ab"); rect(-8, -58, 2, 14, "#f4e8c8"); rect(6, -58, 2, 14, "#b39a6b");
+    rect(-3, -55, 6, 10, "#2b3550"); ell(0, -55, 3, 3, "#2b3550"); ell(0, -49, 2, 2, "#8a6a00"); rect(0, -52, 1, 3, "#6b5200");
+    for (let r = 0; r < 8; r++) rect(-10 + r, -59 - r, 20 - 2 * r, 1, r % 2 ? "#8e3a2b" : "#a5503c");
+    rect(0, -75, 1, 8, "#8e8e8e"); ell(0, -76, 2, 2, "#f2b705");
+    for (const wx of [-22, 12]) {                                          // windows (dark inside: nobody home)
+      rect(wx - 3, -20, 2, 12, "#2f6fd0"); rect(wx + 11, -20, 2, 12, "#2f6fd0");
+      rect(wx, -20, 10, 12, "#6b4a2c"); rect(wx + 1, -19, 8, 10, "#7d93ac"); rect(wx + 1, -19, 3, 10, "#9fb2c8");
+      rect(wx + 4, -19, 1, 10, "#6b4a2c"); rect(wx + 1, -15, 8, 1, "#6b4a2c"); rect(wx - 1, -8, 12, 2, "#e8d6ab");
+    }
+    rect(-7, -20, 14, 20, "#6b4a2c"); rect(-6, -19, 12, 19, "#4a3322");
+    rect(-4, -17, 3, 7, "#5a3f2a"); rect(1, -17, 3, 7, "#5a3f2a"); rect(-4, -8, 3, 6, "#5a3f2a"); rect(1, -8, 3, 6, "#5a3f2a");
+    rect(0, -19, 1, 19, "#2b1d33"); rect(-10, -2, 20, 2, "#b9bcc9"); rect(-8, -4, 16, 2, "#cfd3de");
+    // faded graduation banner sagging under the eaves
+    rect(-31, -29, 62, 8, "#b8a7a1"); rect(-31, -29, 62, 1, "#cdbfb9"); rect(-31, -22, 62, 1, "#9c8c86");
+    for (let i = 0; i < 9; i++) rect(-30 + i * 7, -28 + (i % 3), 2, 1, "#a99893");      // fading blotches
+    text("GRADUATION", 0, -28, 1, "#8f7f7a", "center");
+    rect(-31, -21, 3, 2, "#b8a7a1"); rect(26, -21, 5, 4, "#b8a7a1"); rect(-31, -31, 1, 3, "#7a6a64"); rect(30, -31, 1, 3, "#7a6a64");   // torn, sagging end
+    // closed gate in front of the entrance (low enough that the facade still shows)
+    ell(0, 1, 28, 2, "rgba(20,40,20,0.2)");
+    for (const gx of [-27, 22]) { rect(gx, -17, 5, 17, "#9aa0b0"); rect(gx - 1, -19, 7, 3, "#cfd3de"); rect(gx + 3, -17, 2, 17, "#7d8394"); }
+    rect(-22, -14, 44, 2, "#2b3550"); rect(-22, -2, 44, 2, "#2b3550");
+    for (let i = 0; i < 15; i++) { rect(-21 + i * 3, -14, 1, 12, "#2b3550"); rect(-21 + i * 3, -16, 1, 2, "#4a5568"); }
+    rect(-1, -14, 2, 12, "#1b1426");
+    rect(-20, -10, 40, 9, "#d2051e"); rect(-20, -10, 40, 1, "#ffffff"); rect(-20, -2, 40, 1, "#ffffff");
+    rect(-20, -10, 1, 9, "#ffffff"); rect(19, -10, 1, 9, "#ffffff");
+    text("CLOSED", 0, -8, 1, "#ffffff", "center");
+    rect(-18, -12, 1, 2, "#c4c8d6"); rect(17, -12, 1, 2, "#c4c8d6");
+    rect(-2, -14, 4, 4, "#f2b705"); rect(-1, -16, 2, 2, "#8a6a00");                    // padlock
+    ell(-30, -2, 5, 3, "#2f7a3b"); ell(-31, -3, 3, 2, "#3b9349");
+  });
 }
 
-function drawSchool(x, b) {            // plain one-storey schoolhouse + flagpole
-  rect(x + 16, b - 34, 1, 34, "#8e8e8e"); rect(x + 17, b - 34, 7 + wave(), 4, "#d2051e"); rect(x + 17, b - 31, 7 + wave(), 1, "#ffffff");
-  rect(x - 12, b - 15, 26, 15, "#d8c295"); rect(x - 12, b - 15, 26, 2, "#e8d6ab"); rect(x + 12, b - 15, 2, 15, "#b39a6b");
-  for (let r = 0; r < 6; r++) rect(x - 14 + r, b - 15 - r, 30 - r * 2, 1, r % 2 ? "#8e3a2b" : "#a5503c");
-  rect(x - 3, b - 24, 8, 8, "#d8c295"); rect(x - 3, b - 24, 8, 1, "#e8d6ab");
-  rect(x - 4, b - 27, 10, 3, "#8e3a2b"); rect(x - 1, b - 30, 4, 3, "#8e3a2b");
-  rect(x - 1, b - 22, 4, 4, "#2b3550"); rect(x, b - 21, 2, 2, "#f2b705");
-  for (const wx of [x - 10, x + 8]) { rect(wx, b - 11, 4, 5, "#2b3550"); rect(wx + 1, b - 10, 2, 3, "#cfeaff"); }
-  rect(x - 3, b - 9, 6, 9, "#4a3322"); rect(x - 4, b - 10, 8, 1, "#6b4a2c"); rect(x - 4, b - 1, 8, 1, "#b9bcc9");
-  ell(x - 15, b - 1, 3, 2, "#3b9349");
+function drawCampus(x, b) {            // Texas Tech: red + black hall, Double T emblems, red raider flag, putting green
+  hi(x, b, () => {
+    const R = "#c8102e", RM = "#8e0b21", RL = "#e0384f", K = "#1b1426", wv = wave() * 2, gx = -34, gy = -6;
+    ell(-4, 0, 60, 3, "rgba(20,40,20,0.28)");
+    ell(gx, gy, 29, 8, "#3b7f35"); ell(gx, gy, 27, 7, "#4fa845"); ell(gx, gy, 24, 6, "#7bd466"); ell(gx - 8, gy - 2, 10, 2, "#93e47e");
+    ell(gx + 14, gy + 5, 9, 2, "#e8d6ab"); ell(gx + 14, gy + 4, 7, 1, "#f0e2bd");
+    ell(gx + 3, gy, 3, 1, K); rect(gx + 2, gy - 1, 3, 1, "#2f6f2f");
+    rect(gx + 4, gy - 28, 1, 28, "#ffffff"); rect(gx + 5, gy - 28, 13 + wv, 8, K); rect(gx + 5, gy - 25, 13 + wv, 2, R);
+    ell(gx - 14, gy + 3, 2, 2, "#ffffff"); rect(gx - 15, gy + 4, 3, 1, "#c4c8d6"); rect(gx - 14, gy + 5, 1, 2, "#f2b705");
+    bricks(-4, -36, 48, 36, R, RM, RL);                                       // hall
+    rect(-4, -36, 2, 36, RL); rect(42, -36, 2, 36, RM); rect(-4, -4, 48, 4, K); rect(-4, -4, 48, 1, "#3a3a4a");
+    for (let r = 0; r < 7; r++) rect(-8 + r, -37 - r, 56 - 2 * r, 1, r % 2 ? "#14101e" : "#2b2b3a");
+    rect(-8, -37, 56, 2, "#0b0813");
+    for (const wx of [2, 30]) {
+      rect(wx - 1, -30, 10, 15, K); rect(wx, -29, 8, 13, "#2b3550"); rect(wx + 1, -27, 6, 9, "#f6d977");
+      rect(wx + 3, -29, 1, 13, K); rect(wx, -23, 8, 1, K); rect(wx - 2, -15, 12, 2, "#cfd3de");
+    }
+    rect(13, -27, 14, 27, K); rect(14, -26, 12, 26, "#4a3322"); rect(15, -27, 10, 1, "#4a3322");
+    rect(16, -22, 3, 9, "#5a3f2a"); rect(21, -22, 3, 9, "#5a3f2a"); rect(19, -26, 2, 26, "#2b1d33"); rect(23, -12, 1, 2, "#f2b705");
+    rect(12, -2, 16, 2, "#b9bcc9"); rect(10, -1, 20, 1, "#cfd3de");
+    rect(14, -37, 12, 9, K); rect(14, -37, 12, 1, "#ffffff"); rect(14, -29, 12, 1, "#ffffff");   // Double T over the door
+    rect(15, -35, 10, 2, "#ffffff"); rect(16, -33, 2, 5, "#ffffff"); rect(22, -33, 2, 5, "#ffffff"); rect(20, -35, 1, 2, K);
+    bricks(8, -80, 24, 46, R, RM, RL);                                        // clock tower
+    for (let yy = -80; yy < -36; yy += 6) { rect(8, yy, 3, 3, K); rect(29, yy + 3, 3, 3, K); }
+    rect(8, -80, 3, 46, "rgba(255,255,255,0.1)"); rect(29, -80, 3, 46, "rgba(0,0,0,0.2)");
+    ell(20, -68, 8, 8, K); ell(20, -68, 7, 7, "#ffffff"); ell(20, -68, 5, 5, "#f4f1ea");
+    rect(20, -74, 1, 2, K); rect(20, -63, 1, 2, K); rect(14, -68, 2, 1, K); rect(25, -68, 2, 1, K);
+    rect(20, -73, 1, 5, K); rect(20, -68, 4, 1, K); rect(20, -68, 1, 1, R);
+    rect(11, -57, 18, 17, K); rect(11, -57, 18, 1, "#ffffff"); rect(11, -41, 18, 1, "#ffffff");    // big Double T plaque
+    rect(13, -54, 14, 4, "#ffffff"); rect(15, -50, 3, 9, "#ffffff"); rect(22, -50, 3, 9, "#ffffff"); rect(20, -54, 1, 4, K);
+    rect(13, -54, 14, 1, "#e8ecf4");
+    rect(6, -84, 28, 4, "#3a3a4a"); rect(6, -84, 28, 1, "#6a6a7a");
+    for (let i = 0; i < 7; i++) rect(7 + i * 4, -80, 2, 2, K);
+    for (let r = 0; r < 14; r++) {
+      rect(6 + r, -85 - r, 28 - 2 * r, 1, r % 2 ? "#14101e" : "#2b2b3a");
+      rect(6 + r, -85 - r, Math.max(1, (28 - 2 * r) >> 1), 1, "#3a3a4a");
+    }
+    rect(20, -108, 1, 10, "#8e8e8e"); rect(21, -108, 11 + wv, 6, R); rect(21, -106, 11 + wv, 1, K);
+    rect(54, -58, 1, 58, "#8e8e8e"); ell(54, -60, 2, 2, "#f2b705");                      // red raider flag
+    rect(55, -57, 24 + wv, 16, R); rect(55, -57, 24 + wv, 1, K); rect(55, -42, 24 + wv, 1, K); rect(55, -57, 1, 16, K);
+    pix(RAIDER, 62, -55, 80, false);
+  });
 }
 
-function drawHall(x, b) {              // columned lecture hall with dome, cap and books
-  const stone = "#e9e1cf", stoneD = "#d9d0bb", stoneL = "#fbf7ec";
-  rect(x - 8, b - 40, 16, 5, stone); rect(x - 8, b - 40, 16, 1, stoneL);
-  rect(x - 8, b - 37, 16, 1, stoneD);
-  for (let dy = 0; dy <= 8; dy++) {
-    const half = Math.round(9 * Math.sqrt(1 - (dy / 9) * (dy / 9)));
-    rect(x - half, b - 41 - dy, half * 2 + 1, 1, "#4a9486");
-    rect(x - half, b - 41 - dy, Math.max(1, half >> 1), 1, "#69b3a4");
-  }
-  rect(x, b - 52, 1, 4, "#8e8e8e"); rect(x + 1, b - 57, 1, 9, "#8e8e8e"); rect(x + 2, b - 57, 5 + wave(), 3, "#f2b705");
-  rect(x - 17, b - 27, 34, 21, "#cfc7b4");
-  for (let r = 0; r < 8; r++) {
-    const half = 2 + Math.round(r * 2.4);
-    rect(x - half, b - 37 + r, half * 2 + 1, 1, r === 7 ? stoneD : stone);
-  }
-  rect(x - 4, b - 34, 9, 1, "#1b1426"); rect(x - 2, b - 35, 5, 1, "#1b1426"); rect(x - 2, b - 33, 5, 2, "#2b3550");
-  rect(x + 4, b - 33, 1, 3, "#f2b705");
-  rect(x - 20, b - 29, 41, 3, stoneL); rect(x - 20, b - 27, 41, 1, stoneD);
-  for (const cx of [-17, -11, -5, 3, 9, 15]) {
-    rect(x + cx, b - 26, 3, 20, stoneL); rect(x + cx + 2, b - 26, 1, 20, stoneD);
-  }
-  rect(x - 2, b - 17, 5, 11, "#4a3322"); rect(x - 2, b - 17, 5, 1, "#2b1d33");
-  rect(x - 21, b - 3, 43, 3, "#cfc7b4"); rect(x - 19, b - 6, 39, 3, "#ddd5c2"); rect(x - 19, b - 6, 39, 1, stoneL);
-  rect(x + 24, b - 3, 9, 2, "#d2051e"); rect(x + 25, b - 5, 8, 2, "#2f6fd0"); rect(x + 24, b - 7, 9, 2, "#f2b705");
-  rect(x + 24, b - 9, 7, 2, "#2f9e4f");
+function drawHall(x, b) {              // Booth: gothic maroon stone hall, Chicago skyline behind, stack of exam papers
+  hi(x, b, () => {
+    const M = "#7a1f2b", ML = "#9a3340", MD = "#5a1220", T = "#c9a89a", wv = wave() * 2;
+    ell(0, 0, 66, 3, "rgba(20,40,20,0.28)");
+    const sky = "#9db3c8", skyD = "#7f97ae", skyL = "#b8cade";                // Chicago skyline
+    rect(-82, -58, 14, 58, skyD); rect(-80, -62, 8, 4, skyD);                  // far-left blocks
+    rect(-66, -86, 20, 86, sky); rect(-64, -104, 16, 18, sky); rect(-62, -116, 12, 12, sky); rect(-60, -124, 8, 8, sky);   // Willis Tower tiers
+    rect(-59, -138, 1, 14, skyD); rect(-53, -138, 1, 14, skyD);                // twin antennas
+    rect(-66, -86, 3, 86, skyL); rect(-64, -104, 2, 18, skyL);
+    for (let r = 0; r < 54; r++) { const w = 18 - Math.round(r * 0.13); rect(52 - (w >> 1) + 3, -50 - r, w, 1, r % 9 === 0 ? skyL : sky); }  // Hancock taper
+    rect(55, -116, 1, 14, skyD); rect(59, -116, 1, 14, skyD);
+    for (let r = 0; r < 52; r += 13) { for (let k = 0; k < 13; k++) rect(46 + Math.round(k * 0.55), -50 - r - k, 1, 1, skyD); }
+    rect(68, -72, 14, 72, skyD); rect(70, -84, 10, 12, skyD); rect(40, -64, 8, 64, skyD); rect(-46, -72, 8, 72, skyD);
+    for (let i = 0; i < 40; i++) rect(-80 + ((i * 29) % 160), -20 - ((i * 13) % 90), 1, 1, "#e8f2fa");     // lit windows
+    bricks(-44, -56, 30, 56, M, MD, ML); bricks(14, -56, 30, 56, M, MD, ML);   // wings
+    for (const wx of [-14, 14]) rect(wx - 2, -60, 4, 60, ML);
+    for (let i = 0; i < 4; i++) { rect(-44 + i * 8, -62, 5, 6, M); rect(16 + i * 8, -62, 5, 6, M); }   // battlements
+    rect(-46, -56, 34, 2, MD); rect(12, -56, 34, 2, MD);
+    for (const wx of [-38, -28, 20, 30]) for (const wy of [-34, -12]) {       // lancet windows with stone surrounds
+      lancet(wx, wy + 2, 9, 18, T); lancet(wx, wy + 1, 7, 16, "#2b3550");
+      rect(wx - 1, wy - 12, 2, 12, T); rect(wx - 3, wy - 4, 6, 1, T);
+      rect(wx - 2, wy - 6, 4, 6, (wx + wy) % 3 ? "#f6d977" : "#8fc4e8");
+    }
+    bricks(-14, -74, 28, 74, M, MD, ML);                                       // central gate-tower
+    rect(-14, -74, 2, 74, ML); rect(12, -74, 2, 74, MD);
+    lancet(0, 0, 18, 34, T); lancet(0, 0, 14, 32, "#2b1d33"); lancet(0, 0, 11, 28, "#3a2a1c");   // doorway
+    rect(0, -26, 1, 26, "#1b1426"); for (let i = 0; i < 5; i++) { rect(-4, -4 - i * 5, 1, 1, "#c4b79a"); rect(3, -4 - i * 5, 1, 1, "#c4b79a"); }
+    ell(0, -52, 8, 8, T); ell(0, -52, 7, 7, "#2b3550");                          // rose window
+    rect(-7, -52, 14, 1, T); rect(0, -59, 1, 14, T); rect(-5, -57, 1, 1, T); rect(4, -47, 1, 1, T); rect(-5, -47, 1, 1, T); rect(4, -57, 1, 1, T);
+    ell(0, -52, 2, 2, "#f6d977");
+    rect(-12, -88, 24, 16, M); bricks(-12, -88, 24, 16, M, MD, ML);             // belfry
+    lancet(-5, -72, 7, 12, "#1b1426"); lancet(5, -72, 7, 12, "#1b1426");
+    rect(-14, -92, 28, 4, MD); for (let i = 0; i < 4; i++) rect(-13 + i * 7, -96, 4, 4, M);
+    for (let r = 0; r < 44; r++) {                                              // spire with crockets
+      const w = Math.max(2, Math.round(20 * (1 - r / 44)));
+      rect(-(w >> 1), -97 - r, w, 1, r % 4 === 3 ? "#3a0d16" : MD);
+      rect(-(w >> 1), -97 - r, Math.max(1, w >> 2), 1, "#7a2535");
+      if (r % 7 === 3) { rect(-(w >> 1) - 1, -97 - r, 1, 1, ML); rect((w >> 1), -97 - r, 1, 1, ML); }
+    }
+    rect(0, -150, 1, 10, "#8e8e8e"); rect(1, -150, 9 + wv, 5, "#f2b705");
+    for (const px of [-14, 14, -44, 44]) {                                      // pinnacles on the buttresses
+      const top = Math.abs(px) < 20 ? -78 : -62;
+      for (let r = 0; r < 12; r++) rect(px - Math.round(3 * (1 - r / 12)), top - r, Math.max(1, Math.round(6 * (1 - r / 12))), 1, r % 3 ? ML : MD);
+    }
+    rect(-46, -4, 92, 4, "#8e8e8e"); rect(-46, -4, 92, 1, "#c4c8d6"); rect(-40, -8, 80, 4, "#9aa0b0"); rect(-40, -8, 80, 1, "#c4c8d6"); rect(-30, -12, 60, 4, "#aab0bd");
+    for (let k = 0; k < 6; k++) rect(50 + ((k * 3) % 5) - 1, -3 - k * 3, 22, 3, k % 2 ? "#f4f1ea" : "#ffffff"), rect(50 + ((k * 3) % 5) - 1, -1 - k * 3, 22, 1, "#cfc7b4");   // exam papers
+    rect(48, -22, 24, 5, "#ffffff"); rect(48, -18, 24, 1, "#cfc7b4");
+    text("A+", 52, -22, 1, "#d2051e", "left"); rect(63, -20, 7, 1, "#9aa0b0"); rect(63, -22, 5, 1, "#9aa0b0");
+    rect(56, -25, 14, 2, "#f2b705"); rect(70, -25, 2, 2, "#f4c9a0"); rect(55, -25, 1, 2, "#e87d7d");   // pencil
+  });
+}
+
+function drawOffice(x, b) {            // Masked Rider Capital: modern glass tower with a rooftop masked-rider logo sign
+  hi(x, b, () => {
+    ell(10, 0, 58, 3, "rgba(20,40,20,0.28)");
+    rect(30, -40, 26, 40, "#8fb4d6"); rect(30, -42, 26, 3, "#4a5568"); rect(30, -40, 26, 2, "#b3d0ea");   // annex
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) {
+      const wx = 33 + c * 11, wy = -36 + r * 12;
+      rect(wx, wy, 9, 10, "#6ea6d4"); rect(wx, wy, 3, 10, "#a9d2f0"); rect(wx + 4, wy, 1, 10, "#4f86b4");
+    }
+    rect(-30, -68, 60, 68, "#5f9bd0"); rect(-30, -68, 60, 3, "#8fc4e8"); rect(26, -68, 4, 68, "#3f6f9f");  // glass curtain wall
+    for (let i = 0; i < 60; i += 10) rect(-30 + i, -68, 1, 68, "#3f6f9f");
+    for (let i = 0; i < 9; i++) rect(-30, -68 + i * 8, 60, 1, "#3f6f9f");
+    for (let y = -68; y < 0; y++) { rect(((y + 68) >> 1) - 28, y, 3, 1, "rgba(255,255,255,0.32)"); rect(((y + 68) >> 1) - 6, y, 2, 1, "rgba(255,255,255,0.22)"); }
+    for (let r = 0; r < 7; r++) for (let c = 0; c < 6; c++) if ((r * 5 + c * 3) % 7 === 0) rect(-29 + c * 10, -67 + r * 8, 9, 7, "rgba(255,226,138,0.8)");
+    rect(-26, -74, 52, 6, "#4f86b4"); rect(-26, -74, 52, 1, "#a9d2f0");       // setback crown
+    rect(-22, -92, 44, 18, "#7fb1dc"); rect(-22, -92, 44, 2, "#cfeaff"); rect(-22, -76, 44, 2, "#2b3550");
+    rect(-20, -90, 40, 14, "#14101e"); frame(-20, -90, 40, 14, 1, "#f2b705");   // the sign
+    rect(-19, -89, 16, 12, "#f2b705"); rect(-19, -89, 16, 1, "#ffd95e");
+    pix(RIDER_LOGO, -17, -88, 0, false);
+    text("MRC", 0, -86, 1, "#ffffff", "left");
+    rect(-3, -90, 1, 14, "#f2b705");
+    rect(-8, -96, 16, 4, "#4f86b4"); rect(20, -118, 1, 26, "#4a5568"); rect(18, -120, 5, 3, Math.sin(timeNow * 5) > 0 ? "#ff3348" : "#8e0313");
+    rect(-18, -23, 36, 4, "#2b3550"); rect(-18, -23, 36, 1, "#d2051e");        // canopy
+    rect(-16, -19, 32, 19, "#2b3550"); rect(-14, -17, 13, 17, "#8fc4e8"); rect(1, -17, 13, 17, "#6aa8d4");
+    rect(-14, -17, 4, 17, "#cfeaff"); rect(0, -17, 1, 17, "#2b3550"); rect(-1, -9, 1, 3, "#f2b705"); rect(2, -9, 1, 3, "#f2b705");
+    ell(-26, -2, 6, 3, "#3b9349"); ell(-27, -3, 4, 2, "#53ad5c"); ell(26, -2, 6, 3, "#2f7a3b");
+  });
+}
+
+function drawCastle(cx, baseY) {       // Hilti castle: red-roofed stone towers, banner, gate with a hard hat, tower crane
+  hi(cx, baseY, () => {
+    const stone = "#b9bcc9", stoneD = "#8e93a5", stoneL = "#d4d7e2", wv = wave() * 2, cr = "#f2b705", crD = "#b58a00";
+    ell(0, 0, 70, 3, "rgba(20,40,20,0.28)");
+    // tower crane standing behind the castle
+    rect(62, -126, 2, 126, crD); rect(70, -126, 2, 126, crD); rect(63, -126, 1, 126, cr); rect(70, -126, 1, 126, cr);
+    for (let y = 0; y > -120; y -= 12) { for (let k = 0; k < 6; k++) { rect(64 + k, y - k * 2, 1, 2, crD); rect(69 - k, y - 12 + k * 2, 1, 2, crD); } rect(64, y, 6, 1, crD); }
+    rect(-30, -128, 104, 3, cr); rect(-30, -124, 104, 1, crD); rect(-30, -127, 104, 1, "#ffd95e");
+    for (let xx = -30; xx < 70; xx += 8) { for (let k = 0; k < 4; k++) rect(xx + k * 2, -125 + (k % 2), 1, 2, crD); }
+    rect(72, -128, 18, 3, cr); rect(72, -124, 18, 1, crD); rect(84, -124, 8, 8, "#6b7280"); rect(84, -124, 8, 1, "#9aa0b0");
+    rect(60, -138, 14, 10, cr); rect(60, -138, 14, 2, "#ffd95e"); rect(62, -136, 6, 4, "#8fc4e8"); rect(65, -150, 2, 12, cr);
+    for (let k = 0; k < 20; k++) { rect(Math.round(66 - k * 1.8), Math.round(-150 + k * 1.1), 1, 1, "#4a5568"); rect(Math.round(66 + k * 0.4), Math.round(-150 + k * 0.6), 1, 1, "#4a5568"); }
+    rect(64, -154, 3, 3, Math.sin(timeNow * 5) > 0 ? "#ff3348" : "#8e0313");
+    rect(2, -123, 8, 4, "#4a5568"); rect(5, -119, 1, 28, "#1b1426"); rect(1, -92, 10, 3, "#8e8e8e"); rect(-6, -90, 24, 5, cr); rect(-6, -90, 24, 1, "#ffd95e"); rect(-6, -86, 24, 1, crD);
+    for (const tx of [-52, 32]) {
+      bricks(tx, -88, 20, 88, stone, stoneD, stoneL);
+      rect(tx, -88, 3, 88, stoneL); rect(tx + 17, -88, 3, 88, stoneD);
+      for (let i = 0; i < 3; i++) rect(tx + i * 8, -96, 5, 8, stone);
+      rect(tx - 2, -90, 24, 3, stoneD);
+      rect(tx + 8, -76, 4, 12, "#1d2438"); rect(tx + 8, -60, 4, 12, "#1d2438");
+      cone(tx + 10, -96, 28, 20, "#d2051e", "#a50418");
+      rect(tx + 10, -128, 1, 14, "#8e8e8e"); rect(tx + 11, -128, 10 + wv, 6, "#ffffff"); rect(tx + 11, -128, 10 + wv, 1, "#d2051e");
+    }
+    bricks(-36, -68, 72, 68, stone, stoneD, stoneL);
+    rect(-36, -68, 72, 3, stoneL); rect(-36, -8, 72, 8, stoneD);
+    for (let i = 0; i < 6; i++) { rect(-36 + i * 13, -76, 8, 8, stone); rect(-36 + i * 13, -76, 8, 1, stoneL); }
+    for (const wx of [-28, 24]) { rect(wx, -56, 4, 14, "#1d2438"); rect(wx, -56, 4, 2, "#2b3550"); }
+    rect(-16, -64, 32, 26, "#d2051e"); rect(-16, -64, 32, 2, "#f2b705"); rect(-16, -64, 2, 26, "#ff3348"); rect(14, -64, 2, 26, "#a50418");
+    rect(-16, -38, 12, 3, "#d2051e"); rect(4, -38, 12, 3, "#d2051e"); text("HILTI", 0, -52, 1, "#ffffff", "center");
+    rect(-13, -30, 26, 30, "#3a2a1c"); ell(0, -30, 13, 8, "#3a2a1c");
+    rect(-11, -28, 22, 28, "#6b4a2c"); ell(0, -28, 11, 6, "#6b4a2c");
+    for (let i = 0; i < 6; i++) rect(-10 + i * 4, -30, 1, 30, "#3a2a1c");
+    rect(-11, -20, 22, 2, "#2b2b3a"); rect(-11, -9, 22, 2, "#2b2b3a"); rect(0, -34, 1, 34, "#2b1d33");
+    rect(0, -34, 1, 3, "#8e8e8e");                                              // a hard hat hanging on the gate
+    rect(-8, -31, 16, 7, "#d2051e"); rect(-6, -33, 12, 2, "#d2051e"); rect(-4, -34, 8, 1, "#d2051e"); rect(-5, -32, 4, 2, "#ff6b7d");
+    rect(-1, -34, 2, 9, "#ff3348"); rect(-8, -26, 16, 1, "#ffffff"); rect(-11, -25, 22, 2, "#8e0313"); rect(-11, -23, 22, 1, "rgba(0,0,0,0.25)");
+    for (const tx of [-20, 19]) {
+      rect(tx, -26, 2, 8, "#5a3f2a"); rect(tx - 1, -28, 4, 2, "#8e8e8e");
+      rect(tx, -32 - (Math.sin(timeNow * 9 + tx) > 0 ? 1 : 0), 2, 4, "#f2b705"); rect(tx, -31, 2, 2, "#ff7a2a");
+    }
+    rect(-12, 0, 24, 5, "#7a5a3a"); for (let i = 0; i < 6; i++) rect(-12 + i * 4, 0, 1, 5, "#5a3f2a");
+  });
 }
 
 function drawLandmark(st, status, pulse) {
@@ -794,31 +1032,18 @@ function drawLandmark(st, status, pulse) {
     L.draw(x, b);
     silCtx.globalCompositeOperation = "source-in"; silCtx.fillStyle = "#707489"; silCtx.fillRect(0, 0, W, H);
     silCtx.globalCompositeOperation = "source-over";
-    ctx = mainCtx; ctx.drawImage(sil, 0, 0);
+    ctx = mainCtx; ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(sil, 0, 0); ctx.restore();
     text("?", x, b - (L.h >> 1) - 10, 4, "#ffffff", "center", "#1b1426");
   } else {
     ctx.globalAlpha = status === "locked" ? 0.55 : 1;
     L.draw(x, b);
     ctx.globalAlpha = 1;
   }
-  const by = b - L.h - 16 - (status === "next" ? Math.round(Math.abs(Math.sin(pulse * 5)) * 3) : 0);
-  if (status === "locked") { if (!isMystery(st)) spr(SPR_LOCK, x - 6, by - 4, 2, false, "#8d93a1"); }
-  else if (status === "done") {
-    rect(x - 8, by - 1, 16, 14, "#1b1426"); rect(x - 7, by, 14, 12, "#2f9e4f"); rect(x - 7, by, 14, 2, "#47c169");
-    spr(SPR_CHECK, x - 3, by + 3, 1);
-  } else {
-    for (let i = 0; i < 5; i++) rect(x - 4 + i, by + i, 9 - i * 2, 2, "#ffffff");
-  }
 }
 
 function drawStopNode(st, status, pulse) {
   const x = Math.round(st.x), y = Math.round(st.y);
   if (st.isCastle) {                       // the castle is its own marker
-    if (status === "locked") spr(SPR_LOCK, x - 3, y - 26, 2, false, "#8d93a1");
-    if (status === "next") {
-      const ay = y - 34 - Math.round(Math.abs(Math.sin(pulse * 5)) * 3);
-      for (let i = 0; i < 5; i++) rect(x - 4 + i, ay + i, 9 - i * 2, 2, "#ffffff");
-    }
     return;
   }
   const col = status === "locked" ? "#8d93a1" : status === "done" ? "#2f9e4f" : "#d2051e";
@@ -831,25 +1056,154 @@ function drawStopNode(st, status, pulse) {
   }
 }
 
-function drawHero(x, y, right, moving, phase) {
-  const g = earned();
-  const bob = moving ? (Math.sin(phase * 11) > 0 ? 0 : 1) : (Math.sin(timeNow * 2.2) > 0 ? 0 : 1);
-  const ox = Math.round(x) - 4, oy = Math.round(y) - 13 + bob;
-  rect(ox + 1, oy + 13, 6, 2, "rgba(20,30,20,0.3)");
-  if (g.has("shield")) spr(SPR_SHIELD, right ? ox - 4 : ox + 7, oy + 5, 1, !right);
-  spr(HERO_TOP, ox, oy, 1, !right);
-  const legs = moving ? (Math.sin(phase * 11) > 0 ? HERO_LEGS_A : HERO_LEGS_B) : HERO_LEGS_A;
-  spr(legs, ox, oy + 10, 1, !right);
-  if (g.has("glasses")) drawGlasses(ox, oy, 1);
-  if (g.has("hat")) spr(SPR_HAT, ox, oy - 2, 1, !right);
-  if (g.has("club")) spr(SPR_CLUB, right ? ox + 6 : ox - 2, oy + 3, 1, !right);
+/* --------------------------------------------------- hi-res characters -- */
+// The hero is a 16x26 half-unit pixel grid and a teammate 12x18 (4x the pixels of the old 8x13 / 6x9 sprites).
+function shapes(list, bw, flip) {      // [x, y, w, h, colour] boxes, mirrored about the box width when flip
+  for (const s of list) rect(flip ? bw - s[0] - s[2] : s[0], s[1], s[2], s[3], PAL[s[4]] || s[4]);
+}
+function pix(rows, x, y, bw, flip) {   // pixel-art rows of PAL letters, drawn as merged runs
+  const w = rows[0].length;
+  rows.forEach((row, r) => {
+    for (let c = 0; c < w;) {
+      let n = 1;
+      while (c + n < w && row[c + n] === row[c]) n++;
+      if (PAL[row[c]]) rect(flip ? bw - (x + c + n) : x + c, y + r, n, 1, PAL[row[c]]);
+      c += n;
+    }
+  });
+}
+const SHIELD_L = [               // leadership shield worn on the hero's arm (12x14)
+  "kkkkkkkkkkkk", "krrrrrrrrrdk", "krrrrrrrrrdk", "krrwwrrwwrdk", "krrwwrrwwrdk", "krrwwwwwwrdk", "krrwwwwwwrdk",
+  "krrwwrrwwrdk", "krrwwrrwwrdk", ".krrrrrrrdk.", ".krrrrrrrdk.", "..krrrrrdk..", "...krrrdk...", "....kkkk...."
+];
+const CLUB_SHAPES = (() => {     // golf club gripped in the hero's right hand, head up over the shoulder
+  const out = [];
+  for (let i = 0; i < 19; i++) {
+    const x = 20 + Math.round(i * 0.42), y = 29 - i;
+    out.push([x, y, 2, 1, i < 6 ? "#1b1426" : "#7d8394"], [x, y, 1, 1, i < 6 ? "#3a3a4a" : "#dfe4ee"]);
+  }
+  const rows = [[28, 4], [27, 6], [26, 8], [26, 9], [27, 8], [28, 6]];   // [left x, width] per row of the iron head
+  rows.forEach((r, i) => {
+    out.push([r[0] - 1, 5 + i, r[1] + 2, 1, "#1b1426"]);                       // outline
+  });
+  rows.forEach((r, i) => out.push([r[0], 5 + i, r[1], 1, i === 0 ? "#ffffff" : i > 3 ? "#9aa0b0" : "#e8ecf4"]));
+  out.push([26, 5, 1, 1, "#1b1426"], [29, 7, 5, 1, "#c4c8d6"], [28, 9, 5, 1, "#8e93a5"], [25, 4, 5, 1, "#1b1426"], [28, 4, 6, 1, "#1b1426"], [28, 11, 6, 1, "#1b1426"]);
+  return out;
+})();
+const HERO_SPOT = { club: [20, 24], shield: [-2, 22], glasses: [12, 8], hat: [12, 2] };   // where gear lands, in hero hi-px
+const SKIN = "#f2c396", SKIN_D = "#e0ad7f";
+const HAIR = ["#5a3a22", "#7a5230", "#3d2616"];                                            // hero: brown
+
+function idleBob(k, moving, phase) {     // body bob, head lag and hair sway, in hi-px
+  const t = moving ? phase * 11 : timeNow * 3.4 + k * 1.7;
+  return { b: Math.round(Math.sin(t)), h: Math.round(Math.sin(t - 0.9)), sway: Math.round(Math.sin(t * 0.8) * 1.5) };
 }
 
-function drawMate(x, y, right, moving, phase, style, k) {
-  const bob = moving ? (Math.sin(phase * 11 + k) > 0 ? 0 : 1) : (Math.sin(timeNow * 2.2 + k * 1.7) > 0 ? 0 : 1);
-  const ox = Math.round(x) - 3, oy = Math.round(y) - 9 + bob;
-  rect(ox, oy + 9, 6, 2, "rgba(20,30,20,0.3)");
-  spr(mateRows(style, moving && Math.sin(phase * 11 + k) > 0), ox, oy, 1, !right);
+function drawHeroHi(ox, oy, s, right, moving, phase, g, skip) {   // 24x40 hi-px grid; ox,oy = top-left in grid units
+  const flip = !right, sk = skip || {}, has = k => g.has(k) && !sk[k], I = idleBob(0, moving, phase);
+  const st = moving ? Math.sin(phase * 11) > 0 : null, sw = moving ? (st ? 1 : -1) : 0, [H, HL, HD] = HAIR;
+  ctx.save(); ctx.translate(ox, oy); ctx.scale(s / 2, s / 2);
+  const lift = [st === true ? 2 : 0, st === false ? 2 : 0];
+  shapes([                                                              // legs (planted), skirt
+    [8, 34, 3, 4 - lift[0], SKIN], [13, 34, 3, 4 - lift[1], SKIN], [8, 34, 1, 4 - lift[0], SKIN_D], [13, 34, 1, 4 - lift[1], SKIN_D],
+    [8, 36 - lift[0], 3, 2, "#ffffff"], [13, 36 - lift[1], 3, 2, "#ffffff"],
+    [7, 38 - lift[0], 5, 2, "#ffffff"], [12, 38 - lift[1], 6, 2, "#ffffff"], [7, 39 - lift[0], 5, 1, "#9aa0b0"], [12, 39 - lift[1], 6, 1, "#9aa0b0"],
+    [6, 27, 12, 1, "#f2b705"], [6, 28, 12, 6, "#2b3550"], [6, 28, 12, 1, "#ffffff"], [8, 29, 1, 5, "#3d4a6e"],
+    [11, 29, 1, 5, "#3d4a6e"], [14, 29, 1, 5, "#3d4a6e"], [6, 33, 12, 1, "#1b2237"]
+  ], 24, flip);
+  ctx.save(); ctx.translate(0, I.b);                                    // upper body bobs
+  shapes([[2, 19 + sw, 4, 8, "#2f6fd0"], [2, 26 + sw, 4, 1, "#ffffff"], [2, 27 + sw, 4, 3, SKIN_D]], 24, flip);   // far arm
+  if (has("shield")) pix(SHIELD_L, -7, 18, 24, flip);
+  shapes([[2, 27 + sw, 4, 3, SKIN_D]], 24, flip);
+  shapes([
+    [6, 18, 12, 9, "#2f6fd0"], [6, 18, 3, 9, "#4f8fe8"], [14, 19, 4, 8, "#244f96"], [10, 17, 4, 2, "#ffffff"],
+    [11, 18, 2, 3, SKIN_D], [12, 21, 1, 6, "#cdd3de"], [8, 22, 2, 2, "#f2b705"],
+    [18, 19 - sw, 4, 7, "#244f96"], [18, 19 - sw, 1, 7, "#2f6fd0"], [18, 25 - sw, 4, 1, "#ffffff"], [18, 26 - sw, 4, 3, SKIN]   // near arm + hand
+  ], 24, flip);
+  if (has("club")) shapes(CLUB_SHAPES.map(c => [c[0], c[1] - sw, c[2], c[3], c[4]]), 24, flip);
+  shapes([[18, 26 - sw, 4, 3, SKIN], [18, 27 - sw, 4, 1, SKIN_D]], 24, flip);   // hand over the grip
+  ctx.restore();
+  ctx.save(); ctx.translate(0, I.b + I.h);                              // head + hair
+  const sy = I.sway;
+  shapes([
+    [5, 3, 14, 14, H], [6, 1, 12, 2, H], [7, 0, 10, 1, HD], [4, 6, 2, 12, H], [18, 6, 2, 12, H],
+    [6 + sy, 17, 2, 10, H], [16 + sy, 17, 2, 10, H], [6 + sy, 26, 2, 2, HD], [16 + sy, 26, 2, 2, HD], [5, 12, 1, 6, HD],
+    [10, 15, 4, 3, SKIN_D],                                              // neck
+    [7, 6, 10, 9, SKIN], [8, 15, 8, 1, SKIN_D], [15, 8, 2, 6, SKIN_D],   // face
+    [6, 4, 12, 4, H], [6, 8, 3, 3, H], [15, 8, 3, 3, H], [8, 4, 5, 1, HL], [9, 3, 3, 1, HL],       // bangs, side locks
+    [8, 9, 3, 2, "#ffffff"], [13, 9, 3, 2, "#ffffff"], [10, 9, 1, 2, "#2b3550"], [15, 9, 1, 2, "#2b3550"],
+    [8, 8, 3, 1, HD], [13, 8, 3, 1, HD], [12, 11, 1, 1, SKIN_D],
+    [8, 12, 2, 1, "#ff9aa8"], [14, 12, 2, 1, "#ff9aa8"], [11, 13, 3, 1, "#c8445a"], [11, 14, 3, 1, "#e06a80"]
+  ], 24, flip);
+  if (has("glasses")) shapes([
+    [7, 8, 5, 1, "#1b1426"], [7, 11, 5, 1, "#1b1426"], [7, 8, 1, 4, "#1b1426"], [11, 8, 1, 4, "#1b1426"],
+    [12, 8, 5, 1, "#1b1426"], [12, 11, 5, 1, "#1b1426"], [12, 8, 1, 4, "#1b1426"], [16, 8, 1, 4, "#1b1426"],
+    [8, 9, 3, 2, "rgba(159,211,255,0.35)"], [13, 9, 3, 2, "rgba(159,211,255,0.35)"],
+    [8, 9, 1, 1, "#ffffff"], [13, 9, 1, 1, "#ffffff"], [6, 9, 1, 1, "#1b1426"], [17, 9, 1, 1, "#1b1426"]
+  ], 24, flip);
+  if (has("hat")) { ctx.translate(0, -3); shapes([
+    [7, 0, 10, 1, "#d2051e"], [6, 1, 12, 1, "#d2051e"], [5, 2, 14, 5, "#d2051e"], [5, 5, 14, 2, "#a50418"],
+    [8, 1, 4, 2, "#ff6b7d"], [11, 0, 2, 6, "#ff3348"], [14, 3, 3, 3, "#ffffff"], [15, 3, 1, 3, "#d2051e"],
+    [3, 7, 18, 2, "#8e0313"], [18, 6, 7, 3, "#8e0313"], [3, 9, 18, 1, "rgba(0,0,0,0.22)"]
+  ], 24, flip); }
+  ctx.restore();
+  ctx.restore();
+}
+
+const MATE_STYLES = [
+  { hair: "#e8c35a", hairL: "#f6e19a", hairD: "#b8923a", top: "#2f9e4f", topL: "#47c169", topD: "#1d6f42",
+    kind: "dress", accent: "#f2b705", shoe: "#ffffff", tail: true },            // blonde: green dress, ponytail
+  { hair: "#c8551f", hairL: "#e8803a", hairD: "#8e3a14", top: "#8a4fc9", topL: "#a572e0", topD: "#6a38a0",
+    kind: "jeans", bottom: "#3d5a9e", bottomL: "#5a7ac0", accent: "#ffffff", shoe: "#2b3550", tail: false }   // ginger: purple hoodie + jeans
+];
+
+function drawMateHi(ox, oy, s, right, moving, phase, m, k) {   // 20x32 hi-px teammate
+  const flip = !right, I = idleBob(k + 1, moving, phase);
+  const st = moving ? Math.sin(phase * 11 + k) > 0 : null, sw = moving ? (st ? 1 : -1) : 0;
+  const lift = [st === true ? 2 : 0, st === false ? 2 : 0];
+  ctx.save(); ctx.translate(ox, oy); ctx.scale(s / 2, s / 2);
+  const legs = m.kind === "dress"
+    ? [[7, 28, 2, 2 - (lift[0] > 0 ? 1 : 0), SKIN], [11, 28, 2, 2 - (lift[1] > 0 ? 1 : 0), SKIN]]
+    : [[6, 23, 4, 7 - lift[0], m.bottom], [10, 23, 4, 7 - lift[1], m.bottom], [6, 23, 1, 7 - lift[0], m.bottomL], [10, 24, 1, 6 - lift[0], "#2d4678"]];
+  shapes([
+    ...legs,
+    [5, 30 - lift[0], 5, 2, m.shoe], [10, 30 - lift[1], 5, 2, m.shoe], [5, 31 - lift[0], 5, 1, "rgba(0,0,0,0.25)"], [10, 31 - lift[1], 5, 1, "rgba(0,0,0,0.25)"]
+  ], 20, flip);
+  if (m.kind === "dress") shapes([[3, 23, 14, 6, m.top], [3, 23, 3, 6, m.topL], [14, 24, 3, 5, m.topD], [4, 28, 12, 1, m.topD],
+                                  [6, 24, 1, 5, m.topD], [10, 24, 1, 5, m.topD], [13, 24, 1, 5, m.topD]], 20, flip);
+  ctx.save(); ctx.translate(0, I.b);
+  shapes([
+    [5, 15, 10, 8, m.top], [5, 15, 3, 8, m.topL], [12, 16, 3, 7, m.topD], [8, 14, 4, 2, "#ffffff"],
+    ...(m.kind === "dress" ? [[5, 21, 10, 2, m.accent]] : [[7, 19, 6, 3, m.topD], [8, 20, 4, 1, m.topL], [8, 16, 1, 4, "#ffffff"], [11, 16, 1, 4, "#ffffff"]]),
+    ...(m.kind === "dress" ? [[2, 15 + sw, 3, 9, SKIN_D]] : [[2, 15 + sw, 3, 7, m.top], [2, 15 + sw, 1, 7, m.topL], [2, 22 + sw, 3, 2, SKIN_D]]),
+    ...(m.kind === "dress" ? [[15, 15 - sw, 3, 9, SKIN]] : [[15, 15 - sw, 3, 7, m.topD], [15, 22 - sw, 3, 2, SKIN]])
+  ], 20, flip);
+  ctx.restore();
+  ctx.save(); ctx.translate(0, I.b + I.h);
+  const sy = I.sway;
+  shapes([
+    [4, 3, 12, 11, m.hair], [5, 1, 10, 2, m.hair], [6, 0, 8, 1, m.hairD],
+    ...(m.tail ? [[16 + sy, 5, 2, 3, m.hair], [17 + sy, 8, 2, 9, m.hair], [17 + sy, 16, 2, 2, m.hairD], [16 + sy, 5, 2, 1, m.accent]]
+               : [[3, 7, 3, 9, m.hair], [14, 7, 3, 9, m.hair], [3 + sy, 15, 3, 2, m.hairD], [14 + sy, 15, 3, 2, m.hairD]]),
+    [8, 13, 4, 2, SKIN_D], [5, 5, 10, 8, SKIN], [6, 13, 8, 1, SKIN_D], [13, 7, 2, 6, SKIN_D],
+    [5, 3, 10, 3, m.hair], [5, 6, 2, 2, m.hair], [13, 6, 2, 2, m.hair], [7, 3, 4, 1, m.hairL],
+    [6, 8, 3, 2, "#ffffff"], [11, 8, 3, 2, "#ffffff"], [8, 8, 1, 2, "#2b3550"], [13, 8, 1, 2, "#2b3550"],
+    [6, 7, 3, 1, m.hairD], [11, 7, 3, 1, m.hairD], [6, 11, 2, 1, "#ff9aa8"], [12, 11, 2, 1, "#ff9aa8"], [9, 12, 3, 1, "#c8445a"]
+  ], 20, flip);
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawHero(x, y, right, moving, phase) {       // 12x20 grid units on the map
+  const ox = Math.round(x) - 6, oy = Math.round(y) - 20;
+  ell(Math.round(x), Math.round(y) - 1, 7, 2, "rgba(20,30,20,0.3)");
+  drawHeroHi(ox, oy, 1, right, moving, phase, earned());
+}
+
+function drawMate(x, y, right, moving, phase, style, k) {   // 10x16 grid units on the map
+  const ox = Math.round(x) - 5, oy = Math.round(y) - 16;
+  ell(Math.round(x), Math.round(y) - 1, 6, 2, "rgba(20,30,20,0.3)");
+  drawMateHi(ox, oy, 1, right, moving, phase, style, k);
 }
 
 function drawHud() {
@@ -939,27 +1293,22 @@ function dropSchedule(st) {                 // when each reward starts falling (
   });
 }
 
-const GEAR_SPOT = { club: [6, 3], shield: [-4, 5], hat: [0, -2] };   // gear position on the hero, in hero pixels
-function drawParty(px, py, s, hop, drops) {   // hero + teammates standing beside him, drawn big for cards
-  const g = earned(), h = (Math.sin(timeNow * 2.2) > 0 ? 0 : 1) - (hop ? Math.round(Math.abs(Math.sin(timeNow * 11)) * 3) : 0);
-  const ox = px + 5 * s, oy = py + h;
-  const falling = k => drops && drops.some(d => d.gear === k && d.p < 1);
-  spr(HERO_TOP, ox, oy, s); spr(HERO_LEGS_A, ox, oy + 10 * s, s);
-  for (const k of ["shield", "club", "hat"]) {
-    if (!g.has(k) || falling(k)) continue;
-    spr(GEAR_ICON[k], ox + GEAR_SPOT[k][0] * s, oy + GEAR_SPOT[k][1] * s, s);
-  }
-  if (g.has("glasses") && !falling("glasses")) drawGlasses(ox, oy, s);
+function drawParty(px, py, s, hop, drops) {   // hero + her teammates standing side by side, drawn big for cards
+  const g = earned(), up = hop ? Math.round(Math.abs(Math.sin(timeNow * 11)) * 3) : 0;
+  const ox = px + 4 * s, oy = py - up, q = s / 2;     // q = grid units per hi-px
+  const falling = k => !!(drops && drops.some(d => d.gear === k && d.p < 1));
+  const skip = {}; for (const k of GEAR_KEYS) skip[k] = falling(k);
+  drawHeroHi(ox, oy, s, true, false, 0, g, skip);
   (drops || []).forEach(d => {               // rewards fall onto the hero, one after another
     if (d.p <= 0 || d.p >= 1) return;
-    const sp = GEAR_SPOT[d.gear] || [1, 2];
-    spr(GEAR_ICON[d.gear], ox + sp[0] * s, oy + sp[1] * s - Math.round((1 - d.p * d.p) * 70), s);
+    const sp = HERO_SPOT[d.gear] || [12, 18];
+    spr(GEAR_ICON[d.gear], Math.round(ox + sp[0] * q), Math.round(oy + sp[1] * q - (1 - d.p * d.p) * 70), s);
   });
-  let mx = ox + 8 * s + 3 * s;
+  let mx = ox + 17 * s;
   mates().forEach((style, k) => {
-    const b = hop ? -Math.round(Math.abs(Math.sin(timeNow * 11 + k * 1.6)) * 3) : (Math.sin(timeNow * 2.2 + k * 1.7) > 0 ? 0 : 1);
-    spr(mateRows(style, false), mx, py + 4 * s + b, s);
-    mx += 6 * s + 3;
+    const b = hop ? Math.round(Math.abs(Math.sin(timeNow * 11 + k * 1.6)) * 3) : 0;
+    drawMateHi(mx, py + 4 * s - b, s, true, false, 0, style, k);
+    mx += 12 * s;
   });
 }
 
@@ -972,17 +1321,17 @@ function drawBattleBody(st, x, y, w, h) {
     for (const l of wrap(b.boss, 19)) { text(l, x + 12, ty, 2, "#f3f1ff", "left", "#000000"); ty += 18; }
     ty += 4;
     for (const l of wrap(b.challenge, 36)) { text(l, x + 12, ty, 1, "#cfcbe6", "left"); ty += 10; }
-    const bk = b.sprite || "ball", sc = BOSS_SCALE[bk] || 4, bs = BOSS_SPRITES[bk];
-    let bx = x + w - 70 + ((48 - 12 * sc) >> 1), by = y + 34 + (48 - 12 * sc) + Math.round(Math.sin(timeNow * 3) * 2);
+    const bk = b.sprite || "ball", sc = BOSS_SCALE[bk] || 4, bs = BOSS_SPRITES[bk], cx = x + w - 46;
+    let bx = cx - 6 * sc, by = y + 26 + (48 - 12 * sc) + Math.round(Math.sin(timeNow * 3) * 2);
     if (c.phase === 1) bx += Math.round(Math.sin(c.t * 60) * 3);
-    ell(x + w - 46, y + 88, 18, 2, "rgba(0,0,0,0.35)");
+    ell(cx, y + 76, 18, 2, "rgba(0,0,0,0.35)");
     if (!(c.phase === 1 && c.t > 0.8 && Math.sin(c.t * 50) > 0)) {
       spr(bs, bx, by, sc);
       if (c.phase === 1 && Math.sin(c.t * 40) > 0.3) spr(bs, bx, by, sc, false, "#ffffff");
     }
-    drawParty(x + w - 90, y + 88, 2, c.phase === 1);
+    drawParty(x + w - 96, y + 74, 2, c.phase === 1);
     if (b.weapon) {                          // the hero's weapon: held up, then thrown at the boss
-      const wx = x + w - 70, wy = y + 76, tx = x + w - 53, ty2 = y + 52;
+      const wx = x + w - 84, wy = y + 56, tx = cx - 7, ty2 = y + 44;
       if (c.phase === 0) spr(GEAR_ICON[b.weapon], wx, wy + Math.round(Math.sin(timeNow * 3)), 2);
       else for (let k = 0; k < 2; k++) {
         const p = (c.t * 2.5 + k / 2) % 1;
@@ -1001,7 +1350,7 @@ function drawBattleBody(st, x, y, w, h) {
   let ty = y + 58;                           // the loot line, small, under VICTORY!
   for (const l of wrap(st.loot, 34)) { text(l, x + 12, ty, 1, "#f3f1ff", "left", "#000000"); ty += 10; }
   const sch = dropSchedule(st);
-  drawParty(x + w - 90, y + 27, 2, true, sch.map(r => ({ gear: r.gear, p: Math.max(0, Math.min(1, (c.t - r.at) / 0.5)) })));
+  drawParty(x + w - 96, y + 27, 2, true, sch.map(r => ({ gear: r.gear, p: Math.max(0, Math.min(1, (c.t - r.at) / 0.5)) })));
   let ry = ty + 4;
   sch.forEach(r => {
     if (r.note) { if (c.t >= r.at - 0.9) noteRow(r.note, x, ry, w); ry += 14; }
@@ -1023,6 +1372,7 @@ function drawTitle() {
   drawCastle(300, 150);
   drawHero(70, 180, true, false, 0);
   ctx.fillStyle = "rgba(10,8,18,0.55)"; ctx.fillRect(0, 0, W, H);
+  drawHintBar();
 
   text(CONFIG.title, W / 2, 46, 4, "#ffffff", "center", "#d2051e");
   rect(W / 2 - 80, 82, 160, 2, "#d2051e");
@@ -1060,17 +1410,15 @@ function drawMapScene() {
   const right = moving ? (hp.dx * dir >= 0) : true;
   items.push({ y: hp.y + 0.6, f: () => drawHero(hp.x, hp.y, right, moving, timeNow) });
   mates().forEach((style, k) => {
-    const t = Math.max(0, Math.min(1, heroT - heroDir * (11 * (k + 1)) / PATH.len)), mp = pathAt(t);
+    const t = Math.max(0, Math.min(1, heroT - heroDir * (14 * (k + 1)) / PATH.len)), mp = pathAt(t);
     items.push({ y: mp.y + 0.5, f: () => drawMate(mp.x, mp.y, heroDir * mp.dx >= 0, moving, timeNow, style, k) });
   });
   items.sort((a, b) => a.y - b.y).forEach(o => o.f());
-  STOPS.forEach((st, i) => {            // labels last so scenery never covers them
-    const locked = i > idx || (i === idx && state === S.WALK && !walk.back);
-    wrap(labelOf(st), 20).forEach((ln, j) => text(ln, st.x + (st.labelDx || 0), st.y + 8 + j * 9, 1, locked ? "#9aa3ae" : "#ffffff", "center", "#1b1426"));
-  });
+  drawSigns();
 
   drawParticles();
   drawHud();
+  drawHintBar();
 
   if (state === S.MAP) {
     const label = idx >= STOPS.length ? "FINISH" : "SPACE";
