@@ -5,44 +5,53 @@ through five stops; each stop opens a card. Controls: Space next, B back, Enter 
 
 All presenter-editable content lives in the `CONFIG` block at the top of the script. ALL card text is in one array,
 `CONFIG.stops`; each stop has exactly four text fields: `title`, `boss` (`""` = plain card, no battle), `line` (one short
-line: the fight line on a boss card, may use `\n` for several lines on a plain card) and `loot` (what the boss drops;
-shown on the intro and victory cards). Keep every line under ~12 words. The fixed card words ("BOSS BATTLE", "VICTORY!",
-"ACQUIRED", "TEAMMATES JOINED", prompts) live in `CONFIG.ui`. Non-text game setup sits beside the text in each stop:
-`reward` (items in drop order; an entry may be `{ gear, note }` where the note is a card line shown just before that item
-drops), `art`, `team`, `sprite`, `weapon`, `mystery`, `isCastle`. Item names come from `CONFIG.gearNames`.
+line: the fight line on a boss card, may use `\n` for several lines on a plain card) and `toolkit` (the skills the tools
+stand for, shown on the card after "ADDED TO TOOLKIT:" once the boss is beaten). Keep every line under ~12 words. The fixed card
+words ("BOSS BATTLE", "VICTORY!", "ADDED TO TOOLKIT", "TEAMMATES JOINED", "TOOLKIT", prompts) live in `CONFIG.ui`. Non-text game setup
+sits beside the text in each stop: `tools` (the tools added to the toolkit at that stop, in drop order; an entry may be
+`{ tool, note }` where the note is a card line shown just before that tool drops), `art`, `team`, `sprite`, `weapon`, `mystery`,
+`isCastle`. Tool names come from `CONFIG.toolNames`.
 
-## Stop order and items picked up
+## Stop order and tools picked up
 
-| # | Stop (card title)                       | `art`    | Landmark                       | Items picked up                                   |
+| # | Stop (card title)                       | `art`    | Landmark                       | Tools added to the toolkit                        |
 |---|-----------------------------------------|----------|--------------------------------|---------------------------------------------------|
-| 1 | HIGH SCHOOL                             | `school` | closed schoolhouse, bleachers  | none (hero starts bare)                           |
+| 1 | HIGH SCHOOL                             | `school` | closed schoolhouse             | none (hero starts bare)                           |
 | 2 | UNDERGRAD (D1 GOLF) / TEXAS TECH        | `campus` | red + black hall, Double T     | golf club, time management clock, community heart (+ 2 teammates) |
 | 3 | BOOTH MIF                               | `hall`   | gothic maroon hall + skyline   | smarty glasses (beating Finals), leadership shield (leadership development certificate) |
 | 4 | MASKED RIDER CAPITAL                    | `office` | glass tower with logo sign     | Excel badge (the weapon that beats THE ROLL-UP TWISTER) |
 | 5 | HILTI                                   | (castle) | castle + crane, hat on the gate| hard hat                                          |
 
-All 7 items: golf club, time management clock, community heart, smarty glasses, leadership shield, Excel badge, hard hat
-(config keys `club`, `clock`, `heart`, `glasses`, `shield`, `excel`, `hat`). Inventory tray (`drawHud`, top-left, 7 compact 12x14 slots, no label) order = `GEAR_KEYS`; slots stay dimmed silhouettes until the item is earned.
+All 7 tools: golf club, time management clock, community heart, smarty glasses, leadership shield, Excel badge, hard hat
+(config keys `club`, `clock`, `heart`, `glasses`, `shield`, `excel`, `hat`). Each tool stands for a skill and goes in the **toolkit bar**
+(`drawHud`, top-left, labelled "TOOLKIT", 7 compact 12x14 slots, order = `TOOL_KEYS`); slots stay dimmed silhouettes until the tool
+is earned.
 
-- Items on a battle stop are granted only once the boss is beaten; on other stops, on arrival.
+Skills the tools stand for (the card text after "ADDED TO TOOLKIT:"): Undergrad = time management, community (club, clock, heart);
+Booth = analytical thinking, leadership (glasses, shield); Masked Rider Capital = financial modeling, private markets (Excel badge);
+Hilti = the hard hat (building; plain card).
+
+- Tools on a battle stop are added only once the boss is beaten; on other stops, on arrival.
 - Worn on the hero (a female character): golf club (hand), leadership shield (arm), smarty glasses (face), hard hat (head, last).
-  Clock, heart and Excel badge are inventory-only.
+  Clock, heart and Excel badge live only in the toolkit bar.
 - Undergrad (D1 golf): beating the boss grants club + clock + heart, and two teammates join and follow the hero
   (both female: one blonde, one ginger; `MATE_STYLES`).
-- Booth MIF: the community heart (earned at Undergrad) powers the fight (line "COMMUNITY POWERS THE FIGHT."; loot "SMARTY GLASSES AND A LEADERSHIP SHIELD."): the hero and
-  both teammates stand beside each other during the Finals fight. Winning drops the glasses (they appear on his face + inventory), then the card line
-  "LEADERSHIP DEVELOPMENT CERTIFICATE" shows and the shield drops (on his arm + inventory). The boss is FINALS (`reward` entries can be
-  `{ gear, note }`; the note row appears ~0.9s before that item drops, see `dropSchedule`).
-- Masked Rider Capital: boss THE ROLL-UP TWISTER (small tornado, `sprite: "tornado"`, drawn at scale 3). Card: "WEAPON: EXCEL." and loot
-  "FINANCIAL MODELING AND A DEEP READ ON PRIVATE MARKETS." (the loot box wraps to two lines). The hero holds the Excel badge up,
-  then throws it at the boss during the fight (`weapon: "excel"`); on the win it drops into the inventory (inventory-only item).
+- Booth MIF (`party: "beside"`, `power: "heart"`): the community heart (earned at Undergrad) powers the fight (line "COMMUNITY POWERS THE FIGHT."; toolkit "ANALYTICAL THINKING, LEADERSHIP."): the hero and
+  both teammates stand side by side (not staggered behind her) during the Finals fight, and the heart's slot in the toolkit bar glows and
+  pulses (red halo + gold frame, `drawToolkitBar`) for the whole fight; on every attack a heart streams from that slot down to the hero
+  before the thrown heart leaves her hand (reduced motion: a steady glow, no streaming). Winning drops the glasses (they appear on her face + in the toolkit bar), then the card line
+  "LEADERSHIP DEVELOPMENT CERTIFICATE" shows and the shield drops (on her arm + in the toolkit bar). The boss is FINALS (`tools` entries can be
+  `{ tool, note }`; the note appears ~0.9s before that tool drops, see `dropSchedule`).
+- Masked Rider Capital: boss THE ROLL-UP TWISTER (small tornado, `sprite: "tornado"`, drawn at scale 3). Card: "WEAPON: EXCEL." and toolkit
+  "FINANCIAL MODELING, PRIVATE MARKETS." (the text box wraps it to three rows). The hero holds the Excel badge up,
+  then throws it at the boss during the fight (`weapon: "excel"`, thrown at the boss on each attack); on the win it drops into the toolkit bar (toolkit-bar-only tool).
   The party (hero + two teammates) stands beside him.
 - Copy status: High School, Masked Rider Capital and Hilti lines, plus boss names and lines, are placeholder.
 
 ## Landmark details (each stop looks different)
 
-- High School (`drawSchool`): a closed gate across the entrance with a red CLOSED sign + padlock, empty aluminium bleachers (with one
-  forgotten water bottle), and a faded, sagging GRADUATION banner under the eaves; dark windows, nobody home.
+- High School (`drawSchool`, the map landmark): a closed gate across the entrance with a red CLOSED sign + padlock, and a faded, sagging GRADUATION
+  banner under the eaves; dark windows, nobody home. (There are no bleachers anywhere now.)
 - Texas Tech (`drawCampus`): red and black brick hall with a black roof, a Double T plaque on the clock tower and above the door, a red
   raider flag (masked-rider face emblem, `RAIDER`), black/red golf flag on the putting green.
 - Booth MIF (`drawHall`): gothic maroon stone hall (lancet windows, rose window, buttress pinnacles, belfry, crocketed spire), a Chicago
@@ -51,13 +60,40 @@ All 7 items: golf club, time management clock, community heart, smarty glasses, 
   badge) next to "MRC", plus an annex and a glass lobby.
 - Hilti (`drawCastle`): the red-roofed castle, now with a yellow tower crane behind it (a steel beam hangs over the keep) and a red hard hat
   hung on the gate.
-- `LAND` footprints (`l`/`r`/`h`) and the castle block in `staticBlocks()` were widened for the bleachers, raider flag, skyline and crane;
+- `LAND` footprints (`l`/`r`/`h`) and the castle block in `staticBlocks()` were widened for the raider flag, skyline and crane;
   retune them if you change a building's size, since sign placement and scenery avoid those boxes.
+
+## Keys and prompts (every prompt names the one key that works right then)
+
+| Key | Does |
+|---|---|
+| **Space** (or click) | next: start, walk to the next stop, open its card, close a card, finish; on a boss card it is one attack (pressing mid-swing finishes that swing and swings again) |
+| **Enter** | reveal / use: reveal the hidden next stop on the map, and on the scripted High School card use the hand sanitizer and then reveal the answer. Does nothing on other cards |
+| **B** | back (close a card, walk back a stop, leave the finish screen) |
+| **F** / **R** | fullscreen / restart |
+
+Prompt wording lives in `CONFIG.ui` (`promptSpace` = "PRESS SPACE", `promptEnter` = "PRESS ENTER", plus the High School lines `sanitize`, `ask`, `reveal`).
+- Title: "PRESS SPACE TO BEGIN". Map: "PRESS SPACE" always, and "PRESS ENTER TO REVEAL" in place of "NEXT: ???" while the next stop is hidden.
+- Cards: the tab on the text box edge says "PRESS SPACE" (boss cards, plain cards, and the High School card once the answer is shown) or
+  "PRESS ENTER" (the High School card while the germ is alive or the question is open). The High School card is exclusive: Space does nothing
+  until the answer is revealed, and Enter does nothing afterwards, so the prompt is always the only key that works. Enter on any other card is ignored.
+- The controls bar (top right, `drawHintBar`) reads: SPACE: NEXT / ATTACK, ENTER: REVEAL / USE, B BACK  F FULL  R RESTART.
+- `advance()` is Space, `enterKey()` / `reopen()` are Enter (on the map, Enter without a hidden stop reopens the previous card; this is not advertised).
 
 ## Mystery reveal (High School -> Undergrad)
 
-- High School: the hero has no gear. Card text: "LEVEL 1. / JUNIOR AND SENIOR YEAR: CANCELED. / GOAL: DIVISION I GOLF. / WHERE?"
-  (`line` may hold several lines separated by `\n`).
+- High School is a scripted boss card (`script: "germ"`, `sprite: "germ"`, `weapon: "sanitizer"`, `hits: 1`). Its popup text is a clean
+  list of short lines: "JUNIOR AND SENIOR YEAR:" / "CANCELED BY COVID-19." / "GOAL: PLAY DIVISION I GOLF." (each configured line gets its own
+  row), plus a red prompt row. The hero has no tools here, and the toolkit must still be empty after this stop.
+  1. THE GERM (`drawGermBoss`: a spiky green germ with ball-tipped spikes, red eyes, angry brows and jagged teeth, with a health bar):
+     prompt "PRESS ENTER TO USE HAND SANITIZER." Enter equips a hand sanitizer bottle in her hand and attacks: a spray of droplets
+     (`drawSanitizerProp`) hits the germ, the bar empties and the germ fades (one hit, `hitsNeeded()`).
+     The bottle is a temporary prop drawn only while the attack and fade play; it is not in `TOOL_ICON`/`TOOL_KEYS` and never enters `earned()`.
+  2. The question "WHERE DO I GO TO SCHOOL?" with a grey silhouette + "?" and the prompt "PRESS ENTER TO REVEAL." Enter reveals the
+     red-and-black Double T logo (`drawTTEmblem`) with a short flash and sparkles, and the text "TEXAS TECH." (`card.stage` 0 -> 1).
+  3. Space then closes the card. The scripted card is exclusive: Enter acts (use sanitizer, reveal) and Space only continues once the answer is shown.
+  The map's school has a Texas flag on its flagpole (`texasFlag`): a blue bar with a white star on the left, white over red on the right,
+  rippling gently (frozen under reduced motion).
 - The Undergrad stop carries `mystery: { label: "TEXAS TECH", title: "TEXAS TECH (D1 GOLF)" }`. Until revealed it is drawn as a
   flat grey silhouette of its landmark with a big "?", the map label and "NEXT:" line read "???", and the map shows "ENTER: REVEAL".
 - Enter on the map (when the next stop is a hidden mystery) reveals it: short white flash + sparkles, the landmark turns to
@@ -66,18 +102,72 @@ All 7 items: golf club, time management clock, community heart, smarty glasses, 
 - Implementation: `isMystery/labelOf/titleOf/revealStop`; the silhouette is the landmark drawn on an offscreen canvas
   (`ctx` is temporarily swapped to `silCtx`) and filled grey with `source-in`.
 
+## The popup is a battle screen (`drawCard`)
+
+Every stop opens the same layout (`CARD`: 352x188 with a 102-high scene, starting at y=26 so it sits below the toolkit bar, which is redrawn bright on top of the dimmed map while a card is open): a slim red title bar (the stop title at 1.5x),
+a scene panel for the top two-thirds, and a text box for the bottom third. There is no bullet list and no tool rows. The stop count is a row of
+five dots at the bottom of the text box (`dotsRow`: visited = solid, current = larger and red, upcoming = hollow).
+
+**Readable text** (`lightLabel`, the text box): text is dark ink on a light cream panel with a dark border, at 1.5x (`text()` accepts fractional
+scales; 1.5 is exactly 3 device pixels, so it stays crisp). That is smaller than the old 2-3x headline text but far higher contrast, and it
+reads from across a room. Any text drawn over a backdrop uses the same light panel with a dark border: the boss name + health bar, the
+VICTORY! banner, "N TEAMMATES JOINED", the ENTER: REVEAL hint on the map and the Texas Tech label, the map's NEXT / SPACE / ENTER prompts, the controls bar and
+the title screen's PRESS SPACE. The wooden stop signs and the toolkit bar keep their own dark styling.
+- Characters are drawn large: `drawParty` renders the hero at 4x the map size (48x80 grid units vs 12x20 on the map), standing on the left
+  facing right with every earned tool on her (club in hand, glasses, shield on her arm, hard hat at the end). Joined teammates are 40x64,
+  standing behind her to the right on slightly higher ground. The boss is drawn at 5x (`BOSS_SCALE`, 60 units; the twister 4x) on the right.
+- Scene (`drawScene` -> `SCENES[art]`): every popup has its own backdrop, drawn inside the scene clip and then dimmed (a 36% dark wash) so the
+  sprites stand out. The party is at the left, and on boss cards the boss is at the right under a health bar above it (full at the intro,
+  draining during the fight). Backdrops:
+  - High School (`sceneHallway`): a faded, empty school hallway: lockers, dead ceiling lights, a closed classroom door with a CLOSED notice, a
+    faded GRADUATION banner and a stopped clock.
+  - Undergrad (`sceneGolf`): a golf course: mowed fairway stripes, a green with a red-and-black flag, a bunker, a pond, pines, red + black tee markers.
+  - Booth (`sceneBooth`): the gothic Booth building and a Chicago skyline (Willis Tower, Hancock, a wider lit skyline) at dusk over the lake and a
+    stone plaza; `drawHall(x, b, "skyline" | "building")` draws the two halves separately.
+  - Masked Rider Capital (`sceneDesert`): a desert at dusk: a sky from dusk purple through warm orange to tan at the horizon, a low sun, red-rock
+    mesas (`mesa`) behind layered sand dunes, five saguaro cacti (`saguaro`) and three tumbleweeds (`tumbleweed`) that roll slowly across at
+    different depths and speeds (4-9 units/s) with a small hop. They run off `timeNow`, which reduced motion freezes, so they sit still and
+    do not hop then. The MRC office tower is not in this backdrop (it is still the map landmark).
+  - Hilti (`sceneCastle`): sunrise over the castle and its crane.
+  Plain stops show the party and any tool tile. See "Mystery reveal" above for the High School germ + Texas Tech sequence.
+- Tools (victory): when a boss is defeated each tool is added in three beats (`toolTimes`: pop 1.0s, hold 0.5s, fly 0.6s, 0.6s apart,
+  `dropSchedule`). It pops out of where the boss stood, arcs up and floats down into a slot of the toolkit tray in the text box
+  (`traySlot`), where it rests under its name (the tool name wrapped to two lines). Then the same icon flies up into the toolkit bar
+  (`HUD_BAR` is the shared slot geometry) and the tray slot shows a gold check mark. A tool only counts as earned (lit in the bar, worn
+  by the hero) when it arrives, via `toolDone()` in `earned()`. Icons ride on a light backing tile (`backTile`) so dark ones stay readable.
+  Plain stops (High School, Hilti) just show a small tool tile in the scene. "N TEAMMATES JOINED" and a big VICTORY! show after a win.
+- Text box: before the win, one short line (`line`) at 1.5x, wrapped to <= 3 rows. After a boss win it holds the toolkit tray (one slot
+  per tool, tool name under the icon) above the skills line "ADDED TO TOOLKIT: <skills>" (`toolkit`, <= 2 rows), which a tool `note`
+  (e.g. LEADERSHIP DEVELOPMENT CERTIFICATE) replaces while that tool is pending. A "SPACE" / "FIGHT" / "ATTACK" tab with a blinking arrow sits
+  on the text box edge.
+
 ## Battle cards (Undergrad, Booth MIF, Masked Rider Capital)
 
 A stop with a non-empty `boss` is a battle card (the engine builds `st.battle` from the config fields); `team: N` adds followers.
-- Card flow: intro (boss title, the stop's `line`, loot line) -> Space = FIGHT (short boss-hit animation,
-  Space skips it) -> VICTORY summary. The stop's card shows the boss until it is won; Enter reopens the VICTORY view.
-- Items and followers appear only after the win (`won[i]`). Leaving the card without fighting and pressing Space on the
+- Fight: Space on a boss card is one attack, and three attacks defeat the boss (`startAttack` / `finishAttack`, timings in `ATK`).
+  Each attack is ~0.9s: the hero lunges and uses the stop's tool (`weapon`: the golf club is swung in an arc at Undergrad; the community
+  heart (Booth) and Excel badge (Masked Rider Capital) are thrown), the boss goes steadily white and shakes for a moment when the blow
+  lands, and the health bar drops a third (green -> amber -> red). Pressing Space mid-swing finishes that attack and swings again, so three
+  presses always win. After the third blow the boss fades out (~0.9s), then the VICTORY view appears; Space during the fade skips it.
+  The prompt tab reads FIGHT, then ATTACK, then SPACE. The card shows the boss until it is won; Enter reopens the VICTORY view.
+- Reduced motion (`prefers-reduced-motion`, or `?reduce-motion` in the URL for testing, `reduceMotion`): the animation clock (`timeNow`)
+  is frozen so idle bobbing, orbiting clocks, swaying, clouds and blinking stop; the card appears without its scale-in; there are no
+  lunges, thrown/swung tools, shaking, screen flashes, particles or confetti. Attacks resolve fast (`ATK_REDUCED`): a single steady
+  white tint (never a strobe), an instant health-bar drop, and a short fade. Tools skip their flights (`toolTimes` shrinks to a quick
+  hand-off), so they appear in the tray and then the bar almost immediately. The setting is also picked up live if the OS preference changes.
+- Tools and followers appear only after the win (`won[i]`). Leaving the card without fighting and pressing Space on the
   map reopens it, so an unfinished fight blocks the road.
-- Every battle card draws the party (`drawParty`): the hero with the items worn so far, plus teammates beside him.
-  The party hops during the fight; on victory each reward drops onto the hero in turn (`drops`, 0.4s apart).
-- Undergrad boss: THE CALENDAR DRAGON ("FOUR-TIME LETTER WINNER."; loot "TIME MANAGEMENT, COMMUNITY."), `sprite: "dragon"`.
-- Boss sprites: `SPR_BOSS_DRAGON` (`"dragon"`, calendar page on its belly), `SPR_BOSS` (angry golf ball, `"ball"`, unused) and
-  `SPR_BOSS_EXAM` (angry exam paper, `"exam"`, Booth). 
+- Every battle card draws the party (`drawParty`): the hero with the tools worn so far, plus teammates beside him.
+  The party hops after a win; on victory the tools pop out of the boss, one after another, as described above.
+- Undergrad boss: THE CALENDAR DRAGON ("FOUR-TIME LETTER WINNER."; toolkit "TIME MANAGEMENT, COMMUNITY."), `sprite: "dragon"`.
+- Bosses are drawn procedurally at about 70 grid units tall, each with its own personality, an idle animation and a health bar +
+  name above it (`BOSS_DRAW`; `tinted()` gives the white hit-flash and the grey silhouettes):
+  - `dragon` (THE CALENDAR DRAGON, `drawDragonBoss`): a green dragon with calendar-page wings and a calendar belly, a planner in its claws,
+    smoke puffs, a swishing tail and three clocks (moving hands) orbiting it.
+  - `exam` (FINALS, `drawFinalsBoss`): a tall stack of exam papers with angry eyes, a jagged mouth, pencil/pen arms, loose sheets
+    fluttering off the top and a circled red "A-" on the top sheet.
+  - `tornado` (THE ROLL-UP TWISTER, `drawTwisterBoss`): a spinning striped funnel with an angry face and flying spreadsheet cells
+    (`sheetCell`) orbiting it, some in front and some behind.
 - Teammates trail the hero along the road (`mates()`, `drawMate`), and disappear if the hero walks back before the stop.
 
 ## Resolution and art detail
@@ -92,8 +182,8 @@ A stop with a non-empty `boss` is a battle card (the engine builds `st.battle` f
   teammates (`MATE_STYLES`) are 20x32: a blonde in a green sleeveless dress with a ponytail, and a ginger in a purple hoodie and jeans.
   All three have eyes, brows, blush and mouth, and an idle bob (`idleBob`: body bob, head lag, hair sway). On the map the hero is
   12x20 grid units, teammates 10x16; on cards the party is drawn at 2x that.
-- Worn gear is drawn on the hero in `drawHeroHi`: golf club gripped in the right hand with the iron head up over her shoulder
-  (`CLUB_SHAPES`), glasses on her face, the leadership shield on her arm (`SHIELD_L`), hard hat on her head last. Inventory icons,
+- Worn tools are drawn on the hero in `drawHeroHi`: golf club gripped in the right hand with the iron head up over her shoulder
+  (`CLUB_SHAPES`), glasses on her face, the leadership shield on her arm (`SHIELD_L`), hard hat on her head last. Toolkit icons,
   bosses, scenery and the font are still the older 1-unit pixel art. The mystery silhouette uses an offscreen canvas at the same 2x size.
 
 ## Code notes
@@ -103,13 +193,15 @@ A stop with a non-empty `boss` is a battle card (the engine builds `st.battle` f
   landmark moves to a different position on the road.
 - Scenery (trees, props, flowers) is generated with a seeded RNG and avoids the road, landmarks, castle hill and pond.
 - Stop labels (and START) are small dark wooden signs with a light border (`drawSigns`), drawn last so nothing covers them.
-  `layoutSigns` picks, per label, the nearest free spot that avoids the road (plus the head-room the hero and teammates
-  occupy above it), the hero at every stop, each landmark and its status badge, the castle, the pond, the HUD (gear tray,
-  progress pips, controls bar, NEXT/ENTER text) and the other signs; a dotted line links a sign back to its stop. It reruns
-  only when a label changes (the mystery reveal). If a landmark `LAND` footprint or the HUD moves, update `staticBlocks()`.
+  `layoutSigns` puts every name sign directly below its own building (or beside it; above only as a last resort), hugging the building's
+  footprint (`LAND` box, the castle block, the START flag). A spot is valid only if it avoids the road (plus the head-room the hero and
+  teammates occupy above it), the hero at every stop, every other landmark, the castle, the pond, the HUD (toolkit bar, progress pips,
+  controls bar, NEXT / SPACE / ENTER prompts) and the other signs. Candidates come in ranked tiers (hug the building and dodge trees; hug it
+  and allow trees; drift up to 90, then 220 units) and the cheapest across tiers wins; `perm` tries every placement order. Any tree or prop
+  that would poke through a sign is simply not drawn (`underSign`). There are no connector lines. The layout reruns only when a label
+  changes (the mystery reveal). If a landmark `LAND` footprint or the HUD moves, update `staticBlocks()`.
 - Status badges (green check = done, grey padlock = locked, bobbing arrow = next) are small tabs attached to the top of each stop's
   sign, drawn in `drawSigns`; the landmark itself no longer carries a floating badge. Each sign reserves 11 units above it for the tab,
-  labels over 14 chars wrap to two lines, and `layoutSigns` tries every placement order (`perm`) and keeps the shortest total
-  sign-to-stop distance. Long Masked Rider / Texas Tech signs can sit 50-110 units from their stop; a dotted line links them.
+  and labels over 14 chars wrap to two lines. The Masked Rider sign sits ~27 units below its tower, beneath the road, because the road runs
+  directly under that building and nothing beside it is free.
 - The controls hint is a two-line bar drawn on the canvas at the top right (`drawHintBar`, `HINT_BAR`), clear of START/HIGH SCHOOL.
-- Card headers drop to the small font when the title is too wide for the big one.

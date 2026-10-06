@@ -25,11 +25,13 @@
      boss    boss name; "" = plain card with no battle
      line    one short line (the fight line on a boss card; may hold several lines
              separated by \n on a plain card)
-     loot    what you win (boss cards): shown on the intro card and the victory card
-   Not text (game setup): reward = items picked up, in drop order, e.g. ["club", "clock"]
-   (an entry may be {gear, note}: the note shows as a card line right before that item
+     toolkit the skills the tools stand for (boss cards), shown after "ADDED TO TOOLKIT:" once the boss is beaten
+   Not text (game setup): tools = the tools added to the toolkit here, in drop order, e.g. ["club", "clock"]
+   (an entry may be {tool, note}: the note shows as a card line right before that tool
    drops; keys: club clock heart glasses shield excel hat), art (landmark), team (N
-   teammates follow after a win), sprite (boss look), weapon (item thrown at the boss),
+   teammates follow after a win), hits (attacks that defeat the boss, default 3), script ("germ": Enter does the
+   attacking, then asks where to go to school and reveals the next stop; weapon "sanitizer" is a temporary prop, never a tool), party ("beside": teammates stand next to the hero instead of behind), power (the
+   tool that powers the fight: glows and pulses in the toolkit bar and feeds each attack), sprite (boss look), weapon (the tool used to attack the boss: club = swung, others thrown),
    mystery ({label, title} while hidden), isCastle.
    =========================================================================== */
 const CONFIG = {
@@ -43,38 +45,39 @@ const CONFIG = {
 
   stops: [
     { title: "HIGH SCHOOL",
-      boss: "", line: "LEVEL 1.\nJUNIOR AND SENIOR YEAR: CANCELED.\nGOAL: DIVISION I GOLF.\nWHERE?", loot: "",
-      art: "school", reward: [] },
+      boss: "THE GERM", line: "JUNIOR AND SENIOR YEAR:\nCANCELED BY COVID-19.\nGOAL: PLAY DIVISION I GOLF.", toolkit: "",
+      art: "school", tools: [], sprite: "germ", weapon: "sanitizer", hits: 1, script: "germ" },
 
     { title: "UNDERGRAD (D1 GOLF)",
-      boss: "THE CALENDAR DRAGON", line: "FOUR-TIME LETTER WINNER.", loot: "TIME MANAGEMENT, COMMUNITY.",
-      art: "campus", reward: ["club", "clock", "heart"], team: 2, sprite: "dragon",
+      boss: "THE CALENDAR DRAGON", line: "FOUR-TIME LETTER WINNER.", toolkit: "TIME MANAGEMENT, COMMUNITY.",
+      art: "campus", tools: ["club", "clock", "heart"], team: 2, sprite: "dragon", weapon: "club",
       mystery: { label: "TEXAS TECH", title: "TEXAS TECH (D1 GOLF)" } },
 
     { title: "BOOTH MIF",
-      boss: "FINALS", line: "COMMUNITY POWERS THE FIGHT.", loot: "SMARTY GLASSES AND A LEADERSHIP SHIELD.",
-      art: "hall", sprite: "exam",
-      reward: ["glasses", { gear: "shield", note: "LEADERSHIP DEVELOPMENT CERTIFICATE" }] },
+      boss: "FINALS", line: "COMMUNITY POWERS THE FIGHT.", toolkit: "ANALYTICAL THINKING, LEADERSHIP.",
+      art: "hall", sprite: "exam", weapon: "heart", party: "beside", power: "heart",
+      tools: ["glasses", { tool: "shield", note: "LEADERSHIP DEVELOPMENT CERTIFICATE" }] },
 
     { title: "MASKED RIDER CAPITAL",
-      boss: "THE ROLL-UP TWISTER", line: "WEAPON: EXCEL.", loot: "FINANCIAL MODELING AND A DEEP READ ON PRIVATE MARKETS.",
-      art: "office", reward: ["excel"], sprite: "tornado", weapon: "excel" },
+      boss: "THE ROLL-UP TWISTER", line: "WEAPON: EXCEL.", toolkit: "FINANCIAL MODELING, PRIVATE MARKETS.",
+      art: "office", tools: ["excel"], sprite: "tornado", weapon: "excel" },
 
     { title: "HILTI",
-      boss: "", line: "WHERE IT ALL BUILDS.", loot: "",
-      isCastle: true, reward: ["hat"] }
+      boss: "", line: "WHERE IT ALL BUILDS.", toolkit: "",
+      isCastle: true, tools: ["hat"] }
   ],
 
   ui: {                    // fixed words on the cards
-    boss: "BOSS BATTLE", fight: "FIGHT!", victory: "VICTORY!", loot: "LOOT",
-    acquired: "ACQUIRED", joined: "TEAMMATES JOINED", promptFight: "FIGHT", promptNext: "SPACE"
+    boss: "BOSS BATTLE", fight: "FIGHT!", victory: "VICTORY!", toolkit: "ADDED TO TOOLKIT",
+    joined: "TEAMMATES JOINED", promptSpace: "PRESS SPACE", promptEnter: "PRESS ENTER", toolkitBar: "TOOLKIT",
+    sanitize: "PRESS ENTER TO USE HAND SANITIZER.", ask: "WHERE DO I GO TO SCHOOL?", reveal: "PRESS ENTER TO REVEAL."
   },
 
   endTitle:  "QUEST COMPLETE",
   endLines:  ["READY TO BUILD."],
   endPrompt: "THANK YOU",
 
-  gearNames: {
+  toolNames: {
     club: "GOLF CLUB", clock: "TIME MGMT CLOCK", heart: "COMMUNITY HEART", glasses: "SMARTY GLASSES",
     shield: "LEADERSHIP SHIELD", excel: "EXCEL BADGE", hat: "HARD HAT"
   }
@@ -263,24 +266,6 @@ const SPR_CLUB   = ["...k", "...k", "..k.", "..k.", ".k..", ".k..", "ww..", "ww.
 const SPR_LOCK   = [".gggg.", ".g..g.", ".g..g.", "yyyyyy", "yyyyyy", "yykkyy", "yyykyy", "yyyyyy"];
 const SPR_CHECK  = ["......w", ".....ww", "w...ww.", "ww.ww..", ".www...", "..w...."];
 
-const SPR_BOSS = [
-  "...kkkkkk...", "..kwwwwwwk..", ".kwwwwwwwwk.", "kwwrwwwwrwwk", "kwwkrwwrkwwk", "kwwkkwwkkwwk",
-  "kwwwwwwwwwwk", "kwwkkkkkkwwk", ".kwwwwwwwwk.", "..kyyyyyyk..", "...kkkkkk...", "..kk....kk.."
-];
-const SPR_BOSS_EXAM = [
-  ".kkkkkkkkkk.", "kwwwwwwwwwwk", "kwwrwwwwrwwk", "kwwkrwwrkwwk", "kwwkkwwkkwwk", "kwwwwwwwwwwk",
-  "kwbbbbbbbbwk", "kwwwwwwwwwwk", "kwbbbbbbwwwk", "kwwwwwwwwwwk", ".kkkkkkkkkk.", "..kk....kk.."
-];
-const SPR_BOSS_DRAGON = [          // The Calendar Dragon: green, horned, calendar page on its belly
-  "w..kkkkkk..w", ".wkxxxxxxkw.", "kxxccccccxxk", "kxcrccccrcxk", "kxccccccccxk", "kxccwkkwccxk",
-  ".kcrrrrrrcxk", "kxkwwwwwwkxk", "xxkwkwwkwkxx", ".xkcccccckx.", "..kk....kk..", ".kkk....kkk."
-];
-const SPR_BOSS_TORNADO = [         // The Roll-Up Twister: a small angry funnel
-  ".kkkkkkkkkk.", "kyyyyyyyyyyk", "kyrryyyyrryk", "kyykwyywkyyk", ".kggggggggk.", ".kgnggggngk.",
-  "..kgggggnk..", "...kggggk...", "....kggk....", ".....kgk....", "....kgk.....", ".....kk....."
-];
-const BOSS_SPRITES = { ball: SPR_BOSS, exam: SPR_BOSS_EXAM, dragon: SPR_BOSS_DRAGON, tornado: SPR_BOSS_TORNADO };
-const BOSS_SCALE = { tornado: 3 };       // default 4 (48px); the twister is small
 
 const SPR_EXCEL  = ["xxxxxxx", "xuuwuux", "xuuwuux", "xwwwwwx", "xuuwuux", "xuuwuux", "xxxxxxx"];
 
@@ -288,10 +273,10 @@ const SPR_CLOCK   = [".ggggg.", "gwwwwwg", "gwwkwwg", "gwwkkwg", "gwwwwwg", "gww
 const SPR_HEART   = [".rr.rr.", "rwrrrrr", "rrrrrrr", ".rrrrr.", "..rrr..", "...r..."];
 const SPR_GLASSES = ["wwwwwwwww", "wffwwwffw", "wffwwwffw", ".ww...ww."];
 
-const GEAR_ICON = { club: SPR_CLUB, clock: SPR_CLOCK, heart: SPR_HEART, glasses: SPR_GLASSES, shield: SPR_SHIELD, excel: SPR_EXCEL, hat: SPR_HAT };
-const GEAR_KEYS = ["club", "clock", "heart", "glasses", "shield", "excel", "hat"];   // inventory order
-function iconAt(k, bx, by, bw, bh, tint) {       // draw a gear icon centred in a box
-  const rows = GEAR_ICON[k];
+const TOOL_ICON = { club: SPR_CLUB, clock: SPR_CLOCK, heart: SPR_HEART, glasses: SPR_GLASSES, shield: SPR_SHIELD, excel: SPR_EXCEL, hat: SPR_HAT };
+const TOOL_KEYS = ["club", "clock", "heart", "glasses", "shield", "excel", "hat"];   // toolkit bar order
+function iconAt(k, bx, by, bw, bh, tint) {       // draw a tool icon centred in a box
+  const rows = TOOL_ICON[k];
   spr(rows, bx + ((bw - rows[0].length) >> 1), by + ((bh - rows.length) >> 1), 1, false, tint);
 }
 function drawGlasses(ox, oy, s) {                 // worn on the hero's face
@@ -338,9 +323,9 @@ const STOPS = CONFIG.stops.map((s, i) => {
   const t = (i + 1) / CONFIG.stops.length;
   const p = pathAt(t);
   return Object.assign({}, s, {   // normalise the short config fields into what the engine reads
-    label: s.title, rewards: [].concat(s.reward || []).map(r => (typeof r === "string" ? { gear: r } : r)),
-    gears: [].concat(s.reward || []).map(r => (typeof r === "string" ? r : r.gear)), lines: s.line.split("\n"),
-    battle: s.boss ? { boss: s.boss, challenge: s.line, powerUp: s.loot, sprite: s.sprite, weapon: s.weapon } : null,
+    label: s.title, toolSteps: [].concat(s.tools || []).map(r => (typeof r === "string" ? { tool: r } : r)),
+    tools: [].concat(s.tools || []).map(r => (typeof r === "string" ? r : r.tool)), lines: s.line.split("\n"),
+    battle: s.boss ? { boss: s.boss, sprite: s.sprite, weapon: s.weapon, power: s.power, hits: s.hits || 3 } : null,
     t, x: p.x, y: p.y, index: i
   });
 });
@@ -348,7 +333,7 @@ const STOPS = CONFIG.stops.map((s, i) => {
 /* ------------------------------------------------------------- landmarks -- */
 // dx/dy: offset of the landmark base from the stop; l/r/h: footprint used to keep scenery clear
 const LAND = {
-  school: { dx: -4, dy: -12, l: 46, r: 27, h: 38, draw: drawSchool },
+  school: { dx: -4, dy: -12, l: 22, r: 31, h: 38, draw: drawSchool },
   campus: { dx: 30, dy: -6,  l: 30, r: 41, h: 56, draw: drawCampus },
   hall:   { dx: 0,  dy: -8,  l: 42, r: 38, h: 78, draw: drawHall },
   office: { dx: 0,  dy: -8,  l: 18, r: 30, h: 60, draw: drawOffice }
@@ -413,6 +398,12 @@ const ROADW = y => 3 + Math.round(3 * Math.max(0, Math.min(1, (y - 88) / 112)));
 
 /* ----------------------------------------------------------------- state -- */
 const S = { TITLE: 0, MAP: 1, WALK: 2, CARD: 3, END: 4 };
+// Reduced motion: follow the OS setting (or add ?reduce-motion to the URL to test). Decorative animation stops (bobbing, orbiting,
+// clouds, blinking), and the fight loses its lunges, projectiles, shaking, screen flashes and particles; hits still show as a steady tint.
+const mqReduce = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+let reduceMotion = !!(mqReduce && mqReduce.matches) || /[?&]reduce-motion/.test(location.search);
+if (mqReduce && mqReduce.addEventListener) mqReduce.addEventListener("change", e => { reduceMotion = e.matches; });
+
 let state, idx, heroT, heroDir, walk, card, parts, won, revealed, timeNow = 0, flash = 0;
 
 function reset() {
@@ -426,9 +417,9 @@ function earned() {
   for (let i = 0; i < idx; i++) {
     if (STOPS[i].battle && !won[i]) continue;
     const drops = card && card.i === i && card.phase === 2 && STOPS[i].battle ? dropSchedule(STOPS[i]) : null;
-    STOPS[i].gears.forEach(k => {      // while a win is playing out, items join the inventory as they land
-      const r = drops && drops.find(d => d.gear === k);
-      if (!(r && card.t < r.at + 0.5)) set.add(k);
+    STOPS[i].tools.forEach(k => {      // while a win is playing out, tools join the toolkit as they land
+      const r = drops && drops.find(d => d.tool === k);
+      if (!(r && card.t < r.at + toolDone())) set.add(k);
     });
   }
   return set;
@@ -461,21 +452,32 @@ function revealStop(i) {
 function openCard(i) {
   const st = STOPS[i];
   revealed[i] = true;
-  card = { i: i, anim: 0, t: 0, phase: st.battle && !won[i] ? 0 : 2 };   // battle phases: 0 intro, 1 fight, 2 won
+  card = { i: i, anim: 0, t: 0, phase: st.battle && !won[i] ? 0 : 2, hits: 0, atk: -1, fade: -1,
+           stage: st.script && STOPS[i + 1] && !isMystery(STOPS[i + 1]) ? 1 : 0 };      // stage: scripted cards ask a question (0), then reveal the answer (1)   // phases: 0 intro, 1 fight (3 attacks, then fade), 2 won
   state = S.CARD;
-  if (st.gears.length && !st.battle) burst(st.x, st.y - 6, "#f2b705", 14);
+  if (st.tools.length && !st.battle) burst(st.x, st.y - 6, "#f2b705", 14);
 }
+const ATK = { dur: 0.9, hit: 0.45, ramp: 0.3, fade: 0.9 };    // seconds: swing length, when the blow lands, bar drop, boss fade-out
+const ATK_REDUCED = { dur: 0.35, hit: 0, ramp: 0.001, fade: 0.2 };
+function atkTimes() { return reduceMotion ? ATK_REDUCED : ATK; }
+function startAttack() { card.phase = 1; card.hits++; card.atk = 0; }
+function hitsNeeded() { return STOPS[card.i].battle.hits || 3; }
+function finishAttack() { card.atk = -1; if (card.hits >= hitsNeeded()) card.fade = 0; }   // the last blow defeats the boss
 function winBattle() {
-  card.phase = 2; card.t = 0; won[card.i] = true; flash = 0.35;
+  card.phase = 2; card.t = 0; won[card.i] = true;
+  if (STOPS[card.i].script) return;                           // the germ just goes away; no fanfare
+  flash = 0.35;
   burst(W / 2 + 80, H / 2 - 10, "#f2b705", 26); burst(W / 2 + 80, H / 2 - 10, "#ffffff", 16);
 }
 function burst(x, y, col, n) {
+  if (reduceMotion) return;
   for (let i = 0; i < n; i++) {
     const a = rnd() * Math.PI * 2, sp = 14 + rnd() * 34;
     parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 22, life: 0.7 + rnd() * 0.5, col, g: 70 });
   }
 }
 function confetti() {
+  if (reduceMotion) return;
   const cols = ["#d2051e", "#ffffff", "#f2b705", "#2f6fd0"];
   for (let i = 0; i < 70; i++)
     parts.push({
@@ -485,7 +487,17 @@ function confetti() {
 }
 
 /* ----------------------------------------------------------------- input -- */
-function advance() {
+function closeCard() {
+  const done = card.i === STOPS.length - 1;
+  card = null;
+  if (done) { state = S.END; confetti(); flash = 0.5; } else state = S.MAP;
+}
+function battleStep() {                       // one press while a boss is alive: swing (or skip the swing / the fade)
+  if (card.fade >= 0) { winBattle(); return; }
+  if (card.atk >= 0) finishAttack();
+  if (card.hits < hitsNeeded() && card.fade < 0) startAttack();
+}
+function advance() {                          // SPACE (or a click): next / attack
   if (state === S.TITLE) { state = S.MAP; return; }
   if (state === S.MAP) {
     const pi = idx - 1;
@@ -496,13 +508,10 @@ function advance() {
   }
   if (state === S.WALK) { walk.t = walk.dur; return; }
   if (state === S.CARD) {
-    const bt = STOPS[card.i].battle;
-    if (bt && card.phase === 0) { card.phase = 1; card.t = 0; return; }
-    if (bt && card.phase === 1) { winBattle(); return; }
-    const done = card.i === STOPS.length - 1;
-    card = null;
-    if (done) { state = S.END; confetti(); flash = 0.5; } else state = S.MAP;
-    return;
+    const st = STOPS[card.i];
+    if (st.script) { if (card.phase === 2 && card.stage === 1) closeCard(); return; }   // scripted card: Enter acts, Space only continues once the answer is shown
+    if (st.battle && card.phase < 2) { battleStep(); return; }       // each Space is one attack; pressing mid-swing finishes it and swings again
+    closeCard();
   }
 }
 function goBack() {
@@ -511,6 +520,17 @@ function goBack() {
   if (state === S.WALK) { walk.t = walk.dur; return; }
   if (state === S.MAP && idx > 0) { idx--; startWalk(idx - 1, true); return; }
   if (state === S.MAP && idx === 0) state = S.TITLE;
+}
+function revealFromCard() {                  // scripted card: reveal the next stop's emblem
+  const nx = card && STOPS[card.i + 1];
+  card.stage = 1;
+  if (nx && isMystery(nx)) { revealed[card.i + 1] = true; flash = 0.3; burst(bossPt().x, bossPt().y + 4, "#ffffff", 22); burst(bossPt().x, bossPt().y + 4, "#c8102e", 14); }
+}
+function enterKey() {                         // ENTER on a card: reveal / use. Only the scripted High School card responds.
+  const st = STOPS[card.i];
+  if (!st.script) return;
+  if (card.phase < 2) battleStep();           // use the hand sanitizer (or skip its animation)
+  else if (card.stage === 0) revealFromCard();
 }
 function reopen() {
   if (state === S.MAP && idx < STOPS.length && isMystery(STOPS[idx])) { revealStop(idx); return; }
@@ -521,7 +541,7 @@ addEventListener("keydown", e => {
   const k = e.key;
   if (k === " " || k === "Spacebar" || k === "ArrowRight" || k === "PageDown") { e.preventDefault(); advance(); }
   else if (k === "b" || k === "B" || k === "Backspace" || k === "ArrowLeft" || k === "PageUp") { e.preventDefault(); goBack(); }
-  else if (k === "Enter" || k === "ArrowUp") { e.preventDefault(); reopen(); }
+  else if (k === "Enter" || k === "ArrowUp") { e.preventDefault(); if (state === S.CARD) enterKey(); else reopen(); }
   else if (k === "r" || k === "R") { reset(); }
   else if (k === "f" || k === "F") {
     const el = document.getElementById("wrap");
@@ -651,12 +671,12 @@ function drawProp(o) {
   }
 }
 /* ------------------------------------------------- label signs + hint bar -- */
-const HINT_BAR = { x: 218, y: 3, w: 164, h: 21 };
+const HINT_BAR = { x: 218, y: 3, w: 164, h: 29 };
 function drawHintBar() {                       // controls, kept in a small bar clear of every label
-  rect(HINT_BAR.x, HINT_BAR.y, HINT_BAR.w, HINT_BAR.h, "rgba(20,16,32,0.6)");
-  frame(HINT_BAR.x, HINT_BAR.y, HINT_BAR.w, HINT_BAR.h, 1, "rgba(255,255,255,0.3)");
-  text("SPACE NEXT  B BACK  F FULL", HINT_BAR.x + 4, HINT_BAR.y + 4, 1, "#cfcbe6", "left");
-  text("ENTER REVEAL/CARD  R RESET", HINT_BAR.x + 4, HINT_BAR.y + 12, 1, "#cfcbe6", "left");
+  rect(HINT_BAR.x - 1, HINT_BAR.y - 1, HINT_BAR.w + 2, HINT_BAR.h + 2, "#1b1426"); rect(HINT_BAR.x, HINT_BAR.y, HINT_BAR.w, HINT_BAR.h, "#f4f1e6");
+  text("SPACE: NEXT / ATTACK", HINT_BAR.x + 4, HINT_BAR.y + 4, 1, "#1b1426", "left");
+  text("ENTER: REVEAL / USE", HINT_BAR.x + 4, HINT_BAR.y + 12, 1, "#1b1426", "left");
+  text("B BACK  F FULL  R RESTART", HINT_BAR.x + 4, HINT_BAR.y + 20, 1, "#1b1426", "left");
 }
 
 const hit = (a, b, m) => a[0] - m < b[0] + b[2] && a[0] + a[2] + m > b[0] && a[1] - m < b[1] + b[3] && a[1] + a[3] + m > b[1];
@@ -669,48 +689,63 @@ const ROAD_BLOCKS = (() => {                   // road + the head-room the hero 
   return out;
 })();
 function staticBlocks() {                      // everything a sign must stay off, besides other signs
-  const r = [[3, 2, 104, 26], [166, 2, 52, 18], [HINT_BAR.x - 1, HINT_BAR.y - 1, HINT_BAR.w + 2, HINT_BAR.h + 2],
-             [196, H - 44, W - 196, 44], [296, 24, 84, 74],
+  const r = [[3, 2, 154, 26], [166, 2, 52, 18], [HINT_BAR.x - 1, HINT_BAR.y - 1, HINT_BAR.w + 2, HINT_BAR.h + 2],
+             [140, H - 44, W - 140, 44], [296, 24, 84, 74],
              [POND.x - POND.rx - 1, POND.y - POND.ry - 1, 2 * POND.rx + 3, 2 * POND.ry + 5], [0, 178, 28, 30]];
   for (const st of STOPS) {
     r.push([st.x - 10, st.y - 30, 30, 34]);    // hero (+ club) standing at the stop
     if (st.art) {
       const L = LAND[st.art];
-      r.push([st.lx - L.l - 2, st.ly - L.h - 4, L.l + L.r + 4, L.h + 9], [st.lx - 11, st.ly - L.h - 38, 22, 34]);
+      r.push([st.lx - L.l - 2, st.ly - L.h - 4, L.l + L.r + 4, L.h + 9]);
     }
   }
   return r;
 }
 let signSet = null, signKey = "";
-function layoutSigns() {                       // choose a spot for every label: free of obstacles, as close to its stop as possible
-  const items = [{ text: CONFIG.startLabel, x: pathAt(0).x, y: pathAt(0).y }]
-    .concat(STOPS.map(st => ({ text: labelOf(st), x: st.x, y: st.y, badge: true })));
+function layoutSigns() {                       // every name sign goes directly below (or beside) its own building, clear of road, hero and art
+  const landBox = st => { const L = LAND[st.art]; return { x: st.lx - L.l, y: st.ly - L.h, w: L.l + L.r, h: L.h + 4 }; };
+  const items = [{ text: CONFIG.startLabel, box: { x: 4, y: 182, w: 22, h: 22 } }]
+    .concat(STOPS.map(st => ({ text: labelOf(st), box: st.art ? landBox(st) : { x: 296, y: 24, w: 84, h: 74 }, badge: true })));
   const blocks = staticBlocks();
-  const per = items.map(it => {                // best statically-free candidates for this label, nearest first
-    const lines = wrap(it.text, 14), w = Math.max(...lines.map(l => textW(l, 1))) + 8, h = 6 + 8 * lines.length - 1;
-    const eh = it.badge ? 11 : 0, cand = [];     // eh: room for the status tab on top
-    for (let dx = -190; dx <= 190; dx += 3) for (let dy = -130; dy <= 130; dy += 3) {
-      const r = [Math.round(it.x + dx - w / 2), Math.round(it.y + dy - h / 2), w, h];
-      if (r[0] < 3 || r[1] - eh < 3 || r[0] + w > W - 3 || r[1] + h + 4 > H - 3) continue;
-      cand.push({ r, e: [r[0], r[1] - eh, w, h + eh], score: Math.hypot(dx, dy * 1.2) + (dy < 0 ? 6 : 0) });
+  const treeBlocks = TREES.map(t => [t.x - 7, t.y - 17, 14, 19]).concat(PROPS.map(o => [o.x - 6, o.y - 7, 12, 9]));
+  const freeSpots = (it, w, h, eh, maxGap, trees) => {   // candidate rects hugging the building: below first, then beside, then above
+    const B = it.box, cx = B.x + B.w / 2, cy = B.y + B.h / 2, cand = [];
+    const add = (sx0, sy0, pen) => {
+      if (sx0 < 3 || sy0 - eh < 3 || sx0 + w > W - 3 || sy0 + h + 4 > H - 3) return;
+      cand.push({ r: [sx0, sy0, w, h], e: [sx0, sy0 - eh, w, h + eh], score: Math.hypot(sx0 + w / 2 - cx, sy0 + h / 2 - cy) + pen });
+    };
+    for (let g = 3; g <= maxGap; g += 3) {
+      for (let dx = -(B.w / 2 + w / 2); dx <= B.w / 2 + w / 2; dx += 3) {
+        add(Math.round(cx + dx - w / 2), B.y + B.h + eh + g, 0);                       // directly below
+        add(Math.round(cx + dx - w / 2), B.y - g - h, 40);                              // above (last resort)
+      }
+      for (let sy0 = B.y - eh; sy0 <= B.y + B.h; sy0 += 3) { add(B.x + B.w + g, sy0, 8); add(B.x - g - w, sy0, 8); }   // beside
     }
     cand.sort((a, b) => a.score - b.score);
     const free = [];
     for (const c of cand) {
-      if (!blocks.some(b => hit(c.e, b, 1)) && !ROAD_BLOCKS.some(b => hit(c.e, b, 1))) free.push(c);
-      if (free.length >= 350) break;
+      if (!blocks.some(b => hit(c.e, b, 1)) && !ROAD_BLOCKS.some(b => hit(c.e, b, 1)) && !(trees && treeBlocks.some(b => hit(c.e, b, 0)))) free.push(c);
+      if (free.length >= 250) break;
     }
-    return { lines, badge: it.badge, px: it.x, py: it.y, free: free.length ? free : cand.slice(0, 1) };
+    return free;
+  };
+  const TIERS = [{ gap: 30, trees: true, pen: 0 }, { gap: 30, trees: false, pen: 8 }, { gap: 90, trees: false, pen: 90 }, { gap: 220, trees: false, pen: 250 }];
+  const per = items.map(it => {                // ranked candidate lists: hugging the building first, then progressively looser
+    const lines = wrap(it.text, 14), w = Math.max(...lines.map(l => textW(l, 1))) + 8, h = 6 + 8 * lines.length - 1, eh = it.badge ? 11 : 0;
+    return { lines, badge: it.badge, tiers: TIERS.map(t => ({ pen: t.pen, free: freeSpots(it, w, h, eh, t.gap, t.trees) })) };
   });
   const n = per.length;
   const tryOrder = order => {                  // place greedily in this order; signs may not touch each other
     const placed = [], pick = [];
     let total = 0;
     for (const i of order) {
-      const c = per[i].free.find(c => !placed.some(b => hit(c.e, b, 2)));
-      total += c ? c.score : 1e4;
-      const use = c || per[i].free[0];
-      placed.push(use.e); pick[i] = use;
+      let use = null, cost = 1e5;
+      for (const t of per[i].tiers) {                      // the cheapest candidate across all tiers wins
+        const c = t.free.find(c => !placed.some(b => hit(c.e, b, 2)));
+        if (c && c.score + t.pen < cost) { use = c; cost = c.score + t.pen; }
+      }
+      if (!use) use = per[i].tiers.find(t => t.free.length).free[0];
+      total += cost; placed.push(use.e); pick[i] = use;
     }
     return { total, pick };
   };
@@ -720,19 +755,17 @@ function layoutSigns() {                       // choose a spot for every label:
     for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; perm(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; }
   };
   perm([...Array(n).keys()], 0);
-  return per.map((p, i) => ({ lines: p.lines, r: best.pick[i].r, px: p.px, py: p.py, badge: p.badge }));
+  return per.map((p, i) => ({ lines: p.lines, r: best.pick[i].r, badge: p.badge }));
+}
+function ensureSigns() { const key = STOPS.map(labelOf).join("|"); if (key !== signKey) { signSet = layoutSigns(); signKey = key; } }
+function underSign(x, y, w, h) {               // scenery that would poke through a name sign is simply not drawn
+  return signSet.some(sg => hit([x, y, w, h], [sg.r[0], sg.r[1] - (sg.badge ? 11 : 0), sg.r[2], sg.r[3] + (sg.badge ? 15 : 4)], 1));
 }
 function drawSigns() {                         // dark wooden signs with a light border; drawn last so nothing covers them
-  const key = STOPS.map(labelOf).join("|");
-  if (key !== signKey) { signSet = layoutSigns(); signKey = key; }
+  ensureSigns();
   signSet.forEach((sg, i) => {
     const [x, y, w, h] = sg.r, cx = x + (w >> 1), cy = y + (h >> 1);
     const locked = i > 0 && (i - 1 > idx || (i - 1 === idx && state === S.WALK && !walk.back));
-    const d = Math.hypot(sg.px - cx, sg.py - cy);
-    if (d > 20) for (let t = 9; t < d - 8; t += 4) {   // dotted line from the stop to its sign
-      const k = t / d;
-      rect(sg.px + (cx - sg.px) * k, sg.py + (cy - sg.py) * k - 1, 1, 1, "rgba(255,255,255,0.7)");
-    }
     rect(x + 1, y + h + 3, w - 2, 1, "rgba(0,0,0,0.25)");
     rect(cx - 1, y + h, 3, 3, "#3a2a1c");                              // post
     rect(x, y, w, h, "#e8d6ab");                                       // light border
@@ -800,23 +833,24 @@ const RIDER_LOGO = [                   // Masked Rider Capital logo: black hat, 
   "..kkkkkkkk..", ".rrrrrrrrrr.", "..rrrrrrrr..", "...rrrrrr..."
 ];
 
-function drawSchool(x, b) {            // closed schoolhouse: shut gate + CLOSED sign, empty bleachers, faded graduation banner
+function texasFlag(fx, fy) {            // Texas flag: blue bar with a white star on the left, white over red on the right; waves gently
+  const dyAt = c => Math.round(Math.sin(timeNow * 3 + c * 0.42) * (0.5 + c * 0.07));
+  const STAR = ["..#..", ".###.", "#####", ".###.", ".#.#."];
+  for (let c = 0; c < 26; c++) {
+    const dy = dyAt(c), tone = (c * 0.42 + timeNow * 3) % 6.283 > 3.14 ? 0 : 1;               // a little shading as it ripples
+    if (c < 9) rect(fx + c, fy + dy, 1, 16, "#0b3a8c");
+    else { rect(fx + c, fy + dy, 1, 8, tone ? "#ffffff" : "#e6ecf6"); rect(fx + c, fy + 8 + dy, 1, 8, tone ? "#c8102e" : "#a50d27"); }
+    rect(fx + c, fy + dy, 1, 1, "rgba(0,0,0,0.18)"); rect(fx + c, fy + 15 + dy, 1, 1, "rgba(0,0,0,0.18)");
+  }
+  STAR.forEach((row, r) => { for (let c = 0; c < 5; c++) if (row[c] === "#") rect(fx + 2 + c, fy + 5 + r + dyAt(2 + c), 1, 1, "#ffffff"); });
+}
+function drawSchool(x, b) {            // closed schoolhouse: shut gate + CLOSED sign, faded graduation banner
   hi(x, b, () => {
     const wv = wave() * 2;
-    ell(-20, 0, 66, 3, "rgba(20,40,20,0.28)");
-    // empty bleachers on the left
-    for (const lx of [-88, -45]) { rect(lx, -30, 2, 30, "#6b7280"); rect(lx + 1, -30, 1, 30, "#4a5568"); }
-    rect(-88, -31, 45, 2, "#9aa0b0");                                      // top rail
-    for (let t = 0; t < 4; t++) {
-      const y = -6 - t * 6;
-      rect(-87, y, 43, 2, "#d4d7e2"); rect(-87, y + 2, 43, 2, "#8e93a5");                    // seat plank + riser
-      rect(-87 + t * 2, y - 1, 43 - t * 4, 1, "#e8ecf4");
-    }
-    for (let i = 0; i < 6; i++) rect(-86 + i * 8, -30, 1, 28, "#4a5568");   // bracing
-    rect(-70, -9, 2, 4, "#2f6fd0"); rect(-69, -10, 1, 1, "#ffffff");           // a forgotten water bottle
+    ell(4, 0, 44, 3, "rgba(20,40,20,0.28)");
     // school
     rect(34, -68, 2, 68, "#c4c8d6"); rect(35, -68, 1, 68, "#9aa0b0"); ell(35, -71, 2, 2, "#f2b705");
-    rect(36, -66, 16 + wv, 10, "#d2051e"); rect(36, -63, 16 + wv, 2, "#ffffff"); rect(36, -66, 16 + wv, 1, "#ff3348");
+    texasFlag(36, -68);
     rect(-26, -30, 52, 30, "#d8c295"); rect(-26, -30, 52, 2, "#e8d6ab"); rect(24, -30, 2, 30, "#b39a6b");
     for (let i = 0; i < 7; i++) rect(-26, -27 + i * 4, 52, 1, "#c9b37f");
     rect(-26, -3, 52, 3, "#8a7a5a"); rect(-26, -3, 52, 1, "#a8977a");
@@ -901,10 +935,11 @@ function drawCampus(x, b) {            // Texas Tech: red + black hall, Double T
   });
 }
 
-function drawHall(x, b) {              // Booth: gothic maroon stone hall, Chicago skyline behind, stack of exam papers
+function drawHall(x, b, part) {         // Booth ("skyline" / "building" draw just that half; default both): gothic maroon stone hall, Chicago skyline behind, stack of exam papers
   hi(x, b, () => {
     const M = "#7a1f2b", ML = "#9a3340", MD = "#5a1220", T = "#c9a89a", wv = wave() * 2;
     ell(0, 0, 66, 3, "rgba(20,40,20,0.28)");
+    if (part !== "building") {
     const sky = "#9db3c8", skyD = "#7f97ae", skyL = "#b8cade";                // Chicago skyline
     rect(-82, -58, 14, 58, skyD); rect(-80, -62, 8, 4, skyD);                  // far-left blocks
     rect(-66, -86, 20, 86, sky); rect(-64, -104, 16, 18, sky); rect(-62, -116, 12, 12, sky); rect(-60, -124, 8, 8, sky);   // Willis Tower tiers
@@ -915,6 +950,8 @@ function drawHall(x, b) {              // Booth: gothic maroon stone hall, Chica
     for (let r = 0; r < 52; r += 13) { for (let k = 0; k < 13; k++) rect(46 + Math.round(k * 0.55), -50 - r - k, 1, 1, skyD); }
     rect(68, -72, 14, 72, skyD); rect(70, -84, 10, 12, skyD); rect(40, -64, 8, 64, skyD); rect(-46, -72, 8, 72, skyD);
     for (let i = 0; i < 40; i++) rect(-80 + ((i * 29) % 160), -20 - ((i * 13) % 90), 1, 1, "#e8f2fa");     // lit windows
+    }
+    if (part !== "skyline") {
     bricks(-44, -56, 30, 56, M, MD, ML); bricks(14, -56, 30, 56, M, MD, ML);   // wings
     for (const wx of [-14, 14]) rect(wx - 2, -60, 4, 60, ML);
     for (let i = 0; i < 4; i++) { rect(-44 + i * 8, -62, 5, 6, M); rect(16 + i * 8, -62, 5, 6, M); }   // battlements
@@ -950,6 +987,7 @@ function drawHall(x, b) {              // Booth: gothic maroon stone hall, Chica
     rect(48, -22, 24, 5, "#ffffff"); rect(48, -18, 24, 1, "#cfc7b4");
     text("A+", 52, -22, 1, "#d2051e", "left"); rect(63, -20, 7, 1, "#9aa0b0"); rect(63, -22, 5, 1, "#9aa0b0");
     rect(56, -25, 14, 2, "#f2b705"); rect(70, -25, 2, 2, "#f4c9a0"); rect(55, -25, 1, 2, "#e87d7d");   // pencil
+    }
   });
 }
 
@@ -1090,7 +1128,7 @@ const CLUB_SHAPES = (() => {     // golf club gripped in the hero's right hand, 
   out.push([26, 5, 1, 1, "#1b1426"], [29, 7, 5, 1, "#c4c8d6"], [28, 9, 5, 1, "#8e93a5"], [25, 4, 5, 1, "#1b1426"], [28, 4, 6, 1, "#1b1426"], [28, 11, 6, 1, "#1b1426"]);
   return out;
 })();
-const HERO_SPOT = { club: [20, 24], shield: [-2, 22], glasses: [12, 8], hat: [12, 2] };   // where gear lands, in hero hi-px
+const HERO_SPOT = { club: [20, 24], shield: [-2, 22], glasses: [12, 8], hat: [12, 2] };   // where a tool lands, in hero hi-px
 const SKIN = "#f2c396", SKIN_D = "#e0ad7f";
 const HAIR = ["#5a3a22", "#7a5230", "#3d2616"];                                            // hero: brown
 
@@ -1206,6 +1244,9 @@ function drawMate(x, y, right, moving, phase, style, k) {   // 10x16 grid units 
   drawMateHi(ox, oy, 1, right, moving, phase, style, k);
 }
 
+const CARD = { fw: 352, fh: 188, top: 26, sh: 102 };            // the battle-screen popup sits below the toolkit bar
+function bossPt() { return { x: W / 2 - CARD.fw / 2 + 2 + (CARD.fw - 4) - 84, y: CARD.top + 16 + CARD.sh - 16 - 44 }; }   // where a defeated boss' tools pop out
+const HUD_BAR = { gx: 6, gy: 5, sw: 12, sh: 14, pitch: 14 };      // toolkit bar slots (also where flying tools land)
 function drawHud() {
   // progress pips
   const n = STOPS.length, pw = 8, total = n * pw;
@@ -1216,14 +1257,25 @@ function drawHud() {
     rect(bx + i * pw, by, 6, 6, on ? "#d2051e" : "rgba(255,255,255,0.35)");
     if (on) rect(bx + i * pw, by, 6, 2, "#ff3348");
   }
-  // gear tray: seven compact slots; unearned ones stay dimmed silhouettes
+  drawToolkitBar();
+}
+
+function drawToolkitBar() {              // toolkit bar: seven compact slots; tools not yet earned stay dimmed silhouettes, labelled TOOLKIT
   const g = earned();
-  const gx = 6, gy = 5, sw = 12, sh = 14, pitch = 14;
-  rect(gx - 3, gy - 3, GEAR_KEYS.length * pitch + 3, sh + 6, "rgba(20,16,32,0.55)");
-  GEAR_KEYS.forEach((k, i) => {
-    const x = gx + i * pitch, has = g.has(k);
-    rect(x, gy, sw, sh, has ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.22)");
-    frame(x, gy, sw, sh, 1, has ? "#ffffff" : "rgba(255,255,255,0.18)");
+  const { gx, gy, sw, sh, pitch } = HUD_BAR;
+  const bt = card && STOPS[card.i].battle, power = bt && bt.power && card.phase < 2 && g.has(bt.power) ? bt.power : null;
+  rect(gx - 3, gy - 3, TOOL_KEYS.length * pitch + 3 + 50, sh + 6, "rgba(20,16,32,0.55)");
+  text(CONFIG.ui.toolkitBar, gx + TOOL_KEYS.length * pitch + 2, gy + 4, 1, "#ffd95e", "left");
+  const pulse = reduceMotion ? 0.7 : 0.5 + 0.5 * Math.sin(timeNow * 5);
+  if (power) {                           // the tool powering this fight glows and pulses
+    const k = TOOL_KEYS.indexOf(power), cx = gx + k * pitch + sw / 2, cy = gy + sh / 2;
+    ell(cx, cy, 14, 11, "rgba(255,60,100," + (0.16 + 0.2 * pulse).toFixed(2) + ")");
+    ell(cx, cy, 11, 9, "rgba(255,120,150," + (0.22 + 0.26 * pulse).toFixed(2) + ")");
+  }
+  TOOL_KEYS.forEach((k, i) => {
+    const x = gx + i * pitch, has = g.has(k), hot = k === power;
+    rect(x, gy, sw, sh, hot ? "rgba(255,200,215," + (0.25 + 0.25 * pulse).toFixed(2) + ")" : has ? "rgba(255,255,255,0.14)" : "rgba(0,0,0,0.22)");
+    frame(x, gy, sw, sh, 1, hot ? "#ffd95e" : has ? "#ffffff" : "rgba(255,255,255,0.18)");
     iconAt(k, x, gy, sw, sh, has ? null : "rgba(255,255,255,0.16)");
   });
 }
@@ -1235,134 +1287,546 @@ function promptTag(label, x, y, s) {
   text(label, ax - 4, y, s, "#ffffff", "right", "#1b1426");
 }
 
+/* ------------------------------------------------------------------ bosses -- */
+// Bosses are drawn large (about 70 grid units tall) with their own personality and an idle animation, around (cx, gy) = feet.
+function tinted(color, fn) {           // draw fn() as a flat silhouette of one colour (hit-flash / mystery)
+  const main = ctx;
+  ctx = silCtx; silCtx.clearRect(0, 0, W, H); fn();
+  silCtx.globalCompositeOperation = "source-in"; silCtx.fillStyle = color; silCtx.fillRect(0, 0, W, H);
+  silCtx.globalCompositeOperation = "source-over";
+  ctx = main; ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(sil, 0, 0); ctx.restore();
+}
+function miniClock(x, y, k) {           // a floating clock with moving hands
+  const a = timeNow * (1.6 + k * 0.4), K = "#1b1426";
+  ell(x, y, 7, 7, K); ell(x, y, 6, 6, "#ffffff"); ell(x - 2, y - 2, 2, 2, "#e8ecf4");
+  rect(x, y - 6, 1, 2, K); rect(x, y + 4, 1, 2, K); rect(x - 6, y, 2, 1, K); rect(x + 4, y, 2, 1, K);
+  for (let i = 1; i <= 4; i++) rect(x + Math.round(Math.cos(a) * i), y + Math.round(Math.sin(a) * i), 1, 1, K);
+  for (let i = 1; i <= 3; i++) rect(x + Math.round(Math.cos(a / 12) * i), y + Math.round(Math.sin(a / 12) * i), 1, 1, "#d2051e");
+  rect(x, y, 1, 1, "#d2051e");
+}
+
+function drawDragonBoss(cx, gy) {      // THE CALENDAR DRAGON: planner in its claws, clocks circling it
+  const t = timeNow, bob = Math.round(Math.sin(t * 3) * 2), fl = Math.round(Math.sin(t * 5) * 3);
+  const G = "#2f9e4f", GL = "#47c169", GD = "#1d6f42", K = "#1b1426", BEL = "#f0e2a8", BELD = "#c9b66a";
+  const clocks = [0, 1, 2].map(k => { const a = t * 1.2 + k * 2.09; return { x: Math.round(Math.cos(a) * 52), y: Math.round(-40 + Math.sin(a) * 15 + Math.sin(t * 2 + k) * 2), front: Math.sin(a) > 0, k }; });
+  ctx.save(); ctx.translate(cx, gy);
+  clocks.filter(c => !c.front).forEach(c => miniClock(c.x, c.y, c.k));
+  ctx.translate(0, bob);
+  for (let i = 0; i < 5; i++) {                                    // wing: fanned calendar pages
+    const wx = 4 + i * 9, wy = -50 - i * 3 + ((i * fl) >> 2);
+    rect(wx, wy, 11, 20, K); rect(wx + 1, wy + 1, 9, 18, "#ffffff"); rect(wx + 1, wy + 1, 9, 4, "#d2051e");
+    for (let r = 0; r < 3; r++) rect(wx + 2, wy + 8 + r * 4, 7, 1, "#c4c8d6");
+  }
+  let lx = 0, ly = 0;
+  for (let i = 0; i < 15; i++) {                                   // swishing tail
+    lx = 26 + i * 3; ly = -12 - Math.round(Math.sin(i * 0.5 + t * 3) * 3) - (i > 8 ? (i - 8) * 2 : 0);
+    rect(lx, ly, Math.max(3, 10 - (i >> 1)), Math.max(3, 9 - (i >> 1)), i % 2 ? G : GD);
+  }
+  rect(lx + 1, ly - 5, 8, 3, "#d2051e"); rect(lx + 3, ly - 8, 4, 3, "#d2051e"); rect(lx + 2, ly - 3, 6, 2, "#d2051e");   // tail tip
+  ell(10, -24, 25, 21, GD); ell(10, -25, 24, 20, G); ell(2, -32, 12, 8, GL);                       // body
+  for (let i = 0; i < 4; i++) rect(8 + i * 8, -47 + i, 4, 5, GD);                                  // back spikes
+  ell(8, -20, 15, 15, BELD); ell(8, -20, 14, 14, BEL);                                             // calendar belly
+  for (let y = -33; y <= -7; y++) {
+    const half = Math.round(14 * Math.sqrt(Math.max(0, 1 - Math.pow((y + 20) / 14, 2))));
+    if (y % 4 === 0) rect(8 - half, y, half * 2 + 1, 1, BELD);
+    else for (let x = -12; x <= 12; x += 4) if (Math.abs(x) <= half) rect(8 + x, y, 1, 1, BELD);
+  }
+  rect(-4, -7, 11, 7, GD); rect(-6, -3, 13, 3, G); rect(18, -7, 11, 7, GD); rect(16, -3, 13, 3, G);   // feet
+  for (const fx of [-6, -3, 0, 16, 19, 22]) rect(fx, -1, 2, 2, "#f4f1ea");                          // claws
+  ell(-12, -42, 9, 11, G);                                                                       // neck + head facing the hero
+  ell(-26, -50, 14, 11, G); ell(-28, -54, 8, 5, GL);
+  rect(-48, -52, 24, 10, G); rect(-48, -52, 24, 2, GL); rect(-48, -50, 2, 2, GD);
+  rect(-46, -43, 21, 4, GD);
+  for (let i = 0; i < 4; i++) { rect(-46 + i * 5, -42, 3, 3, "#ffffff"); }
+  rect(-31, -57, 7, 6, "#ffd95e"); rect(-29, -56, 3, 5, K); rect(-33, -60, 11, 2, GD); rect(-34, -59, 4, 2, GD);   // angry eye
+  rect(-22, -67, 3, 10, "#f4f1ea"); rect(-27, -64, 3, 8, "#f4f1ea");
+  for (let k = 0; k < 3; k++) {                                                                  // smoke puffs
+    const p = (t * 0.8 + k / 3) % 1;
+    ell(Math.round(-50 - p * 16), Math.round(-50 - p * 12), 2 + Math.round(p * 2), 2 + Math.round(p * 2), "rgba(225,225,235," + (0.7 * (1 - p)).toFixed(2) + ")");
+  }
+  rect(-34, -34, 24, 28, K); rect(-33, -33, 22, 26, "#c8102e");                                    // the planner in its claws
+  rect(-11, -33, 1, 26, "#f4f1ea"); rect(-10, -32, 1, 24, "#cfc7b4");
+  for (let i = 0; i < 6; i++) rect(-37, -32 + i * 4, 5, 2, "#cdd3de");
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) rect(-30 + c * 4, -30 + r * 5, 3, 4, (r * 5 + c) % 7 === 3 ? "#ffd95e" : "#f4f1ea");
+  rect(-26, -25, 6, 1, "#d2051e"); rect(-23, -22, 1, 5, "#d2051e"); rect(-19, -15, 5, 1, "#d2051e");
+  rect(-14, -31, 7, 5, GL); rect(-14, -15, 7, 5, GL); rect(-34, -34, 3, 3, GL); rect(-34, -10, 3, 3, GL);   // claws gripping it
+  rect(-8, -28, 10, 6, G);
+  ctx.translate(0, -bob);
+  clocks.filter(c => c.front).forEach(c => miniClock(c.x, c.y + bob, c.k));
+  ctx.restore();
+}
+
+function drawFinalsBoss(cx, gy) {      // FINALS: a tall stack of exam papers with angry eyes and a red A-minus on top
+  const t = timeNow, bob = Math.round(Math.sin(t * 3) * 2), K = "#1b1426", N = 18;
+  ctx.save(); ctx.translate(cx, gy + bob);
+  rect(-16, -5, 12, 5, K); rect(5, -5, 12, 5, K); rect(-17, -2, 3, 2, "#4a5568"); rect(15, -2, 3, 2, "#4a5568");   // little feet
+  for (let i = 0; i < N; i++) {                                                                  // the stack of papers
+    const y = -6 - Math.round(i * 3.2), off = Math.round(Math.sin(i * 1.7) * 2 + Math.sin(t * 2 + i * 0.4) * (i / N) * 3);
+    rect(-23 + off, y, 46, 4, "#b8b09c"); rect(-23 + off, y, 46, 3, i % 2 ? "#ffffff" : "#f1ede2");
+    rect(-23 + off, y, 2, 3, "rgba(0,0,0,0.1)");
+    if (i % 4 === 1) rect(-14 + off, y + 1, 22, 1, "#c4c8d6");
+  }
+  const top = -6 - Math.round((N - 1) * 3.2);                                                    // top sheet seen from above
+  for (let r = 0; r < 13; r++) { const sh = Math.round((13 - r) / 3); rect(-23 + sh, top - 1 - r, 46, 1, "#ffffff"); }
+  rect(-23, top - 14, 46, 1, "#cfc7b4");
+  for (let r = 0; r < 4; r++) rect(-20 + ((13 - r * 3) >> 2), top - 12 + r * 3, 14, 1, "#c4c8d6");
+  ell(10, top - 6, 18, 12, "#d2051e"); ell(10, top - 6, 16, 10, "#ffffff");                       // circled, teacher-style
+  text("A-", 4, top - 13, 2, "#d2051e", "left");                                                 // the red A-minus
+  const ey = top + 22;                                                                           // angry eyes on the front
+  ell(-10, ey, 8, 7, "#ffffff"); ell(10, ey, 8, 7, "#ffffff");
+  ell(-8, ey + 1, 3, 4, K); ell(8, ey + 1, 3, 4, K); rect(-9, ey - 1, 2, 2, "#ffffff"); rect(7, ey - 1, 2, 2, "#ffffff");
+  for (let i = 0; i < 11; i++) { rect(-19 + i, ey - 10 + (i >> 1), 2, 3, "#d2051e"); rect(8 + i, ey - 5 - (i >> 1), 2, 3, "#d2051e"); }   // slanted angry brows
+  for (let i = 0; i < 9; i++) { rect(-13 + i * 3, ey + 12 + (i % 2) * 3, 3, 3, K); if (i % 2) rect(-12 + i * 3, ey + 12, 1, 2, "#ffffff"); }   // jagged mouth
+  const sw = Math.round(Math.sin(t * 4) * 2);                                                    // pencil + red pen arms
+  rect(-42, ey + 3 + sw, 20, 3, "#f2b705"); rect(-44, ey + 3 + sw, 3, 3, "#f4c9a0"); rect(-45, ey + 4 + sw, 1, 1, K); rect(-23, ey + 3 + sw, 3, 3, "#e87d7d");
+  rect(22, ey - 1 - sw, 20, 3, "#d2051e"); rect(41, ey - 1 - sw, 3, 3, K); rect(20, ey - 1 - sw, 3, 3, "#ffffff");
+  for (let k = 0; k < 2; k++) {                                                                  // loose sheets fluttering off the top
+    const p = (t * 0.6 + k * 0.5) % 1;
+    rect(Math.round(-30 + k * 56 + Math.sin(t * 3 + k * 3) * 5), Math.round(top - 8 - p * 22), 9, 6, "#ffffff"); rect(Math.round(-29 + k * 56 + Math.sin(t * 3 + k * 3) * 5), Math.round(top - 6 - p * 22), 6, 1, "#c4c8d6");
+  }
+  ctx.restore();
+}
+
+const CELL_LABELS = ["=SUM", "$", "42", "%", "#N/A", "IRR"];
+function sheetCell(x, y, k) {          // a flying spreadsheet cell tile
+  const hot = k % 4 === 0;
+  rect(x, y, 10, 8, "#1d6f42"); rect(x + 1, y + 1, 8, 6, hot ? "#ffe28a" : "#f4f1ea");
+  rect(x + 1, y + 4, 8, 1, "#33c481"); rect(x + 5, y + 1, 1, 6, "#33c481"); rect(x + 1, y + 1, 8, 1, "#33c481");
+  rect(x + 2, y + 2, 2, 1, hot ? "#d2051e" : "#1d6f42"); rect(x + 6, y + 5, 2, 1, "#1d6f42");
+}
+function drawTwisterBoss(cx, gy) {     // THE ROLL-UP TWISTER: a spinning funnel full of flying spreadsheet cells
+  const t = timeNow, bob = Math.round(Math.sin(t * 4) * 2), K = "#1b1426", A = "#bcc6d8", B = "#8e9ab0";
+  const sway = u => Math.round(Math.sin(t * 3 + u * 4) * (2 + 9 * u));
+  const half = u => Math.round(31 - 27 * u);
+  const cells = [];
+  for (let k = 0; k < 10; k++) {
+    const u = ((k * 0.137) + 0.04) % 0.95, a = t * 3.2 + k * 0.63 + u * 4, r = half(u) + 8;
+    cells.push({ x: Math.round(sway(u) + Math.cos(a) * r), y: Math.round(-70 + u * 64 + Math.sin(t * 5 + k) * 2), front: Math.sin(a) > 0, k });
+  }
+  ctx.save(); ctx.translate(cx, gy + bob);
+  cells.filter(c => !c.front).forEach(c => sheetCell(c.x - 5, c.y - 4, c.k));
+  const o = (t * 45) % 14;
+  for (let y = 0; y < 66; y++) {
+    const u = y / 66, h = half(u), s = sway(u), yy = -70 + y;
+    rect(s - h - 1, yy, 1, 1, K); rect(s + h + 1, yy, 1, 1, K);
+    for (let x = -h; x <= h;) {
+      const idx = Math.floor((x + 1000 + o) / 7), end = Math.min(h + 1, (idx + 1) * 7 - o - 1000);
+      rect(s + x, yy, end - x, 1, idx % 2 ? A : B); x = end;
+    }
+  }
+  const fs = sway(0.12);                                                                         // the angry face near the top
+  ell(fs - 11, -56, 6, 5, "#ffffff"); ell(fs + 11, -56, 6, 5, "#ffffff");
+  ell(fs - 10, -55, 3, 3, "#d2051e"); ell(fs + 10, -55, 3, 3, "#d2051e"); rect(fs - 11, -56, 1, 1, K); rect(fs + 9, -56, 1, 1, K);
+  for (let i = 0; i < 9; i++) { rect(fs - 18 + i, -64 + (i >> 1), 2, 3, K); rect(fs + 6 + i, -60 - (i >> 1) + 4, 2, 3, K); }
+  rect(fs - 6, -44, 13, 3, K); for (let i = 0; i < 4; i++) rect(fs - 5 + i * 3, -44, 2, 2, "#ffffff");
+  cells.filter(c => c.front).forEach(c => sheetCell(c.x - 5, c.y - 4, c.k));
+  ctx.restore();
+}
+function drawGermBoss(cx, gy) {         // THE GERM: a spiky green germ with a mean face
+  const t = timeNow, bob = Math.round(Math.sin(t * 3.4) * 2), pulse = Math.sin(t * 5);
+  const G = "#5cc24a", GL = "#8be06a", GD = "#2f8a3a", SP = "#3fa83f", K = "#1b1426";
+  ctx.save(); ctx.translate(cx, gy - 34 + bob);
+  for (let i = 0; i < 14; i++) {                                         // spikes with ball tips
+    const a = i * Math.PI * 2 / 14 + 0.2, r0 = 19, r1 = 29 + Math.round(pulse * 1.5 + Math.sin(i * 1.7 + t * 4));
+    for (let k = 0; k <= 6; k++) { const r = r0 + (r1 - r0) * k / 6; rect(Math.cos(a) * r - 1, Math.sin(a) * r - 1, 3, 3, k < 5 ? SP : GD); }
+    const tx = Math.round(Math.cos(a) * (r1 + 2)), ty = Math.round(Math.sin(a) * (r1 + 2));
+    ell(tx, ty, 3, 3, GD); ell(tx - 1, ty - 1, 1, 1, GL);
+  }
+  ell(0, 0, 23, 22, GD); ell(0, -1, 22, 21, G); ell(-8, -10, 9, 6, GL);   // body + highlight
+  for (const [sx_, sy_, r_] of [[11, 11, 3], [-15, 9, 2], [14, -6, 2], [-4, 16, 2]]) ell(sx_, sy_, r_, r_, GD);   // spots
+  ell(-8, -4, 6, 6, "#ffffff"); ell(8, -4, 6, 6, "#ffffff"); ell(-9, -3, 3, 3, "#d2051e"); ell(7, -3, 3, 3, "#d2051e");   // mean eyes
+  rect(-10, -4, 1, 1, K); rect(6, -4, 1, 1, K);
+  for (let i = 0; i < 9; i++) { rect(-16 + i, -13 + (i >> 1), 2, 3, K); rect(15 - i, -13 + (i >> 1), 2, 3, K); }      // angry brows
+  rect(-10, 7, 21, 7, K); for (let i = 0; i < 5; i++) { rect(-9 + i * 4, 7, 2, 3, "#ffffff"); rect(-7 + i * 4, 11, 2, 3, "#ffffff"); }   // jagged teeth
+  ctx.restore();
+}
+const BOSS_DRAW = { germ: drawGermBoss, dragon: drawDragonBoss, exam: drawFinalsBoss, tornado: drawTwisterBoss };
+
+function drawSanitizerProp(hx, hy, atk, T, tx, ty, spray) {     // TEMPORARY prop: a hand sanitizer bottle in the hero's hand + its spray
+  rect(hx - 5, hy - 14, 11, 17, "#1b1426"); rect(hx - 4, hy - 13, 9, 15, "#e8f2ff");                // bottle
+  rect(hx - 4, hy - 8, 9, 9, "#4fa3ff"); rect(hx - 4, hy - 8, 9, 2, "#8fc9ff"); rect(hx - 3, hy - 12, 7, 3, "#ffffff");   // gel + label
+  rect(hx - 3, hy - 18, 5, 4, "#cdd3de"); rect(hx - 3, hy - 21, 11, 3, "#cdd3de"); rect(hx + 5, hy - 21, 3, 4, "#8e93a5");   // pump + nozzle
+  if (!spray || atk < 0.1 || atk > T.hit + 0.25) return;
+  const nx = hx + 9, ny = hy - 20;
+  for (let k = 0; k < 16; k++) {                                                                   // droplets streaming at the germ
+    const p = ((atk - 0.1) * 3.2 + k / 16) % 1, jx = Math.sin(k * 12.9) * 4, jy = Math.cos(k * 7.7) * 4;
+    rect(nx + (tx - nx) * p + jx * p, ny + (ty - ny) * p + jy * p - Math.sin(p * Math.PI) * 10, k % 3 ? 3 : 2, k % 3 ? 3 : 2, k % 2 ? "#bfe3ff" : "#ffffff");
+  }
+}
+function drawTTEmblem(cx, cy) {        // Texas Tech Double T shield
+  const K = "#1b1426", R = "#c8102e";
+  for (let r = 0; r < 20; r++) { const h = Math.round(25 - r * 1.2); rect(cx - h, cy + 10 + r, h * 2, 1, r < 2 ? K : r % 6 === 5 ? K : R); }
+  rect(cx - 26, cy - 30, 52, 40, K); rect(cx - 23, cy - 27, 46, 37, R);
+  for (let r = 0; r < 18; r++) { const h = Math.round(22 - r * 1.2); rect(cx - h, cy + 10 + r, h * 2, 1, R); }
+  rect(cx - 19, cy - 22, 38, 9, "#ffffff"); rect(cx - 13, cy - 13, 9, 30, "#ffffff"); rect(cx + 4, cy - 13, 9, 30, "#ffffff");
+  rect(cx - 1, cy - 22, 2, 9, K); rect(cx - 19, cy - 22, 38, 2, "#e8ecf4");
+}
+
 /* ------------------------------------------------------------------ card -- */
+// The stop popup is a battle screen: a slim title bar with the stop-number badge, a themed scene (top two-thirds)
+// showing the backdrop, the party and the boss, and a text box (bottom third) with one short line.
+// Each popup has its own backdrop (below). They are drawn inside the scene clip, then dimmed so the sprites stand out.
+const CASTLE_BD = { sky: ["#ff9f5a", "#ffe6a8"], ground: ["#63b254", "#4b9540"], hill: "#79c966" };
+function lerpHex(a, b, t) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = p(a), B = p(b);
+  return "rgb(" + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",") + ")";
+}
+function skyGradient(sx, sy, sw, h, top, bottom) { for (let i = 0; i < h; i += 2) rect(sx, sy + i, sw, 2, lerpHex(top, bottom, Math.min(1, i / h))); }
+function cloud(x, y, k, col) { rect(x, y, 30 * k, 6, col); rect(x + 6 * k, y - 4, 18 * k, 5, col); }
+function pineAt(x, y, k) {                 // a small pine, base at (x, y), k = size
+  rect(x - 1, y - 3 * k, 3, 3 * k, "#6b4a2c");
+  for (let i = 0; i < 4; i++) { const w = Math.round((16 - i * 3) * k), h = Math.round(6 * k); rect(x - (w >> 1), y - 3 * k - (i + 1) * 4 * k, w, h, i % 2 ? "#2f7a3b" : "#2a6b3a"); rect(x - (w >> 1), y - 3 * k - (i + 1) * 4 * k, Math.max(1, w >> 2), h, "#3f9a4b"); }
+}
+function pavers(sx, sy, sw, sh, top, a, b) {  // perspective paving / floor tiles from y=top to the bottom of the scene
+  rect(sx, top, sw, sy + sh - top, a);
+  for (let r = 0, y = top; y < sy + sh; r++) {
+    const rh = 4 + r * 2, tw = 20 + r * 10;
+    for (let c = -1; c * tw < sw + tw; c++) if ((c + r) % 2) rect(sx + c * tw - ((r * 13) % tw), y, tw, rh, b);
+    y += rh;
+  }
+}
+
+function sceneHallway(sx, sy, sw, sh) {   // High School: a faded, empty hallway (lockers, dead lights, a closed classroom door)
+  const wallTop = sy + 12, floorTop = sy + sh - 34, y0 = wallTop + 16;
+  rect(sx, sy, sw, sh, "#bdb8a6");
+  rect(sx, sy, sw, 12, "#d8d4c6"); rect(sx, sy + 11, sw, 1, "#9f9b8c");
+  for (let i = 0; i < 6; i++) { const lx = sx + 10 + i * 58; rect(lx, sy + 3, 34, 5, i % 3 === 1 ? "#8d8a80" : "#f6f3e6"); rect(lx, sy + 3, 34, 1, "#ffffff"); }   // some lights are out
+  const cols = ["#7f8ea3", "#8693a6", "#778599"], d = "#5d6a7d";
+  for (let i = 0, x = 0; x < sw; x += 15, i++) {
+    if (i === 12 || i === 13) continue;                                   // gap for the classroom door
+    const xx = sx + x;
+    rect(xx, y0, 14, floorTop - y0, cols[i % 3]); rect(xx + 13, y0, 1, floorTop - y0, d); rect(xx, y0, 14, 1, "#a2afc0");
+    for (let v = 0; v < 4; v++) rect(xx + 3, y0 + 4 + v * 2, 8, 1, d);
+    rect(xx, y0 + 26, 14, 1, d); rect(xx + 5, y0 + 13, 4, 3, "#d9d3bf"); rect(xx + 10, y0 + 19, 2, 4, "#cdd3de"); rect(xx + 10, y0 + 33, 2, 4, "#cdd3de");
+  }
+  const dx = sx + 181;                                                   // closed classroom door with a CLOSED notice
+  rect(dx - 1, y0 - 8, 32, floorTop - y0 + 8, "#4a3a2a"); rect(dx, y0 - 7, 30, floorTop - y0 + 7, "#7a6246");
+  rect(dx + 7, y0 - 2, 16, 18, "#2b3548"); rect(dx + 7, y0 - 2, 16, 3, "#46536a"); rect(dx + 22, y0 + 24, 3, 3, "#d4c28a");
+  rect(dx + 8, y0 + 20, 14, 7, "#f4f1e6"); rect(dx + 9, y0 + 22, 12, 1, "#d2051e"); rect(dx + 9, y0 + 24, 8, 1, "#9aa0b0");
+  rect(sx + 36, wallTop + 2, 122, 11, "#b8a7a1"); rect(sx + 36, wallTop + 2, 122, 1, "#cdbfb9");       // faded graduation banner
+  text("GRADUATION", sx + 97, wallTop + 4, 1, "#8f7f7a", "center");
+  rect(sx + 36, wallTop + 13, 2, 3, "#7a6a64"); rect(sx + 156, wallTop + 13, 2, 3, "#7a6a64");
+  ell(sx + sw - 26, wallTop + 9, 7, 7, "#4a4a4a"); ell(sx + sw - 26, wallTop + 9, 6, 6, "#e8e4d4");       // a clock stuck at 3:45
+  rect(sx + sw - 26, wallTop + 5, 1, 5, "#1b1426"); rect(sx + sw - 26, wallTop + 9, 3, 1, "#1b1426");
+  rect(sx, floorTop - 2, sw, 2, "#7d7a6e");
+  pavers(sx, sy, sw, sh, floorTop, "#a8a496", "#98948a");
+}
+
+function sceneGolf(sx, sy, sw, sh) {      // Undergrad: a sunny golf course (fairway, green with a red-and-black flag, bunker, pond, pines)
+  const hz = sy + 56;
+  skyGradient(sx, sy, sw, hz - sy, "#5da8e6", "#ffe3b8");
+  ell(sx + 58, hz - 22, 14, 14, "#fff2b8"); ell(sx + 58, hz - 22, 11, 11, "#ffffff");
+  cloud(sx + 150, sy + 14, 2, "#ffffff"); cloud(sx + 270, sy + 28, 1, "#f4f8ff");
+  ell(sx + 70, hz + 6, 120, 20, "#6fae5a"); ell(sx + sw - 70, hz + 8, 130, 22, "#62a24e");
+  for (let x = 0; x < sw; x += 5) { const h = 5 + ((x * 7) % 5); rect(sx + x, hz - h + 2, 6, h, "#3f7a3a"); rect(sx + x, hz - h + 2, 6, 1, "#5a9a50"); }
+  rect(sx, hz + 2, sw, sh - (hz + 2 - sy), "#5aa845");
+  for (let r = 0, y = hz + 2; y < sy + sh; r++) { const rh = 5 + r * 2; rect(sx, y, sw, rh, r % 2 ? "#63b44e" : "#559f42"); y += rh; }
+  const gx = sx + sw * 0.5;                                              // the green and its flag
+  ell(gx, hz + 12, 46, 8, "#4a8f3a"); ell(gx, hz + 11, 42, 7, "#86d870"); ell(gx - 10, hz + 9, 14, 2, "#9fe88a"); ell(gx + 8, hz + 12, 3, 1, "#1b1426");
+  rect(gx + 7, hz - 22, 1, 34, "#ffffff"); rect(gx + 8, hz - 22, 15, 9, "#1b1426"); rect(gx + 8, hz - 19, 15, 3, "#c8102e");
+  ell(sx + sw * 0.22, hz + 22, 32, 5, "#d4c585"); ell(sx + sw * 0.22, hz + 21, 28, 4, "#efe2b0");       // sand bunker
+  ell(sx + sw * 0.83, hz + 24, 38, 6, "#3f86c9"); ell(sx + sw * 0.83 - 6, hz + 23, 26, 3, "#69b3ea");    // pond
+  rect(sx + sw * 0.83 + 22, hz + 14, 1, 9, "#3b7a3b"); rect(sx + sw * 0.83 + 25, hz + 15, 1, 8, "#3b7a3b");
+  pineAt(sx + 8, hz + 26, 1); pineAt(sx + sw - 10, hz + 30, 1); pineAt(sx + sw * 0.36, hz + 14, 1);
+  for (const tx of [sx + 118, sx + 126]) { rect(tx, sy + sh - 14, 3, 3, "#c8102e"); rect(tx, sy + sh - 11, 3, 3, "#1b1426"); }   // red + black tee markers
+}
+
+function sceneBooth(sx, sy, sw, sh) {     // Booth: the gothic hall on a plaza at dusk, Chicago skyline and the lake behind it
+  const hz = sy + 58, gy = sy + sh - 30;
+  skyGradient(sx, sy, sw, hz - sy, "#232650", "#f29a5a");
+  for (let i = 0; i < 30; i++) rect(sx + ((i * 53) % sw), sy + 3 + ((i * 29) % 30), 1, 1, "rgba(255,255,255,0.8)");
+  for (let i = 0; i < gy - hz; i += 2) rect(sx, hz + i, sw, 2, lerpHex("#e0845a", "#26345e", i / (gy - hz)));   // lake with a sunset glow
+  for (let i = 0; i < 9; i++) rect(sx + 20 + ((i * 41) % (sw - 40)), hz + 3 + ((i * 7) % 18), 10 + (i % 3) * 6, 1, "rgba(255,230,190,0.5)");
+  for (let i = 0, x = -4; x < sw; i++) {                                 // the wider skyline
+    const w = 10 + (i * 7) % 14, h = 14 + (i * 23) % 34;
+    rect(sx + x, hz - h, w, h, i % 2 ? "#3c4468" : "#333b5c");
+    for (let k = 0; k < 6; k++) rect(sx + x + 2 + ((k * 5) % Math.max(1, w - 3)), hz - h + 3 + ((k * 9) % Math.max(1, h - 5)), 1, 1, "#f6d977");
+    x += w + 1;
+  }
+  drawHall(sx + sw * 0.6, gy + 12, "skyline");                            // Willis Tower + Hancock
+  rect(sx, gy, sw, sy + sh - gy, "#4a4a5a");
+  for (let yy = gy; yy < sy + sh; yy += 4) rect(sx, yy, sw, 2, "#3a3a4a");
+  rect(sx, gy, sw, 2, "rgba(255,255,255,0.18)");
+  drawHall(sx + sw * 0.6, gy + 12, "building");
+}
+
+function mesa(cx, baseY, w, h, col, dark, light) {   // a flat-topped red-rock butte with strata
+  for (let r = 0; r < h; r++) {
+    const f = r / h, hw = Math.round(w * 0.34 + w * 0.16 * Math.pow(f, 1.6) + (r > h * 0.45 && r < h * 0.5 ? 3 : 0));   // steep sides, a ledge on the way down
+    const y = baseY - h + r, tone = (r % 7 < 2) ? light : col;
+    rect(cx - hw, y, hw * 2, 1, tone); rect(cx - hw, y, 3, 1, light); rect(cx + hw - 5, y, 5, 1, dark);
+  }
+  rect(cx - Math.round(w * 0.34), baseY - h, Math.round(w * 0.68), 1, light);
+}
+function saguaro(x, by, h) {                       // a saguaro cactus: ribbed trunk with two upturned arms
+  const G = "#3f7a3b", GD = "#2c5a2d", GL = "#5d9a50", armL = Math.max(5, Math.round(h * 0.2)), armH = Math.max(8, Math.round(h * 0.28));
+  ell(x + 1, by, 8, 2, "rgba(60,30,10,0.35)");
+  rect(x - 3, by - h + 3, 7, h - 3, G); ell(x, by - h + 3, 3, 3, G);
+  rect(x - 3, by - h + 3, 2, h - 3, GL); rect(x + 2, by - h + 3, 2, h - 3, GD); rect(x, by - h + 1, 1, h - 1, GD);
+  const ay = by - Math.round(h * 0.5), ay2 = by - Math.round(h * 0.68);
+  rect(x - 3 - armL, ay, armL + 1, 4, G); rect(x - 3 - armL, ay - armH + 4, 4, armH, G); ell(x - 1 - armL, ay - armH + 4, 2, 2, G); rect(x - 3 - armL, ay - armH + 4, 1, armH, GL);
+  rect(x + 3, ay2, armL + 1, 4, G); rect(x + 3 + armL - 3, ay2 - armH + 4, 4, armH, G); ell(x + 3 + armL - 1, ay2 - armH + 4, 2, 2, G); rect(x + 3 + armL, ay2 - armH + 4, 1, armH, GD);
+}
+function tumbleweed(x, y, r, ang) {                 // a ball of dry brush, spokes turning as it rolls
+  ell(x, y + r, r + 1, 1, "rgba(60,30,10,0.35)");
+  for (let k = 0; k < 20; k++) { const a = k * Math.PI / 10; rect(x + Math.cos(a) * r, y + Math.sin(a) * r, 2, 2, "#7a5a30"); }
+  for (let k = 0; k < 4; k++) for (let q = -r; q <= r; q += 2) {
+    const a = ang + k * Math.PI / 4; rect(x + Math.cos(a) * q, y + Math.sin(a) * q, 1, 1, k % 2 ? "#a07a45" : "#8a6a3a");
+  }
+}
+
+function sceneDesert(sx, sy, sw, sh) {   // Masked Rider Capital: a desert at dusk (mesas, dunes, saguaros, rolling tumbleweeds)
+  const hz = sy + 58, gy = sy + sh - 16;
+  const h1 = ((hz - sy) * 0.5) | 0;
+  skyGradient(sx, sy, sw, h1, "#4a3a72", "#e0745a");                                       // dusk at the top ...
+  skyGradient(sx, sy + h1, sw, hz - sy - h1 + 2, "#e0745a", "#f8cc90");                    // ... warm orange and tan at the horizon
+  for (let i = 0; i < 16; i++) rect(sx + ((i * 53) % sw), sy + 2 + ((i * 29) % 14), 1, 1, "rgba(255,255,255,0.7)");
+  ell(sx + sw * 0.7, hz - 4, 22, 22, "#ffd9a0"); ell(sx + sw * 0.7, hz - 4, 17, 17, "#fff0c4");                   // low sun
+  mesa(sx + sw * 0.16, hz + 2, 84, 30, "#a9503a", "#8a3c2c", "#c26a4c");                                        // far red-rock mesas
+  mesa(sx + sw * 0.5, hz + 2, 110, 40, "#b4553d", "#923f2e", "#cc6f4f");
+  mesa(sx + sw * 0.86, hz + 2, 70, 24, "#a04b36", "#843a2b", "#b9644a");
+  rect(sx, hz - 8, sw, 12, "rgba(246,200,138,0.35)");                                                          // dusty haze over the mesa bases
+  ell(sx + sw * 0.18, hz + 8, 120, 14, "#e8bf86"); ell(sx + sw * 0.78, hz + 10, 140, 16, "#e0b27a");              // dunes, far to near
+  ell(sx + sw * 0.48, hz + 20, 170, 16, "#d8a669"); ell(sx + sw * 0.1, hz + 26, 120, 14, "#d19c60");
+  rect(sx, hz + 18, sw, sh - (hz + 18 - sy), "#d19c60");
+  for (let yy = hz + 20, r = 0; yy < sy + sh; r++, yy += 4 + r) rect(sx, yy, sw, 2, r % 2 ? "#c78f55" : "#d6a46a");   // sand ripples
+  ell(sx + sw * 0.62, hz + 24, 60, 3, "rgba(255,230,180,0.35)");                                                // sunlit dune crest
+  saguaro(sx + 40, hz + 20, 20); saguaro(sx + 128, hz + 28, 38); saguaro(sx + 214, hz + 22, 26); saguaro(sx + 318, hz + 32, 44); saguaro(sx + 292, hz + 20, 18);
+  for (const w of [{ r: 7, y: gy - 3, v: 9, o: 60 }, { r: 5, y: gy - 20, v: 6, o: 190 }, { r: 4, y: gy - 31, v: 4, o: 300 }]) {   // tumbleweeds roll slowly across
+    const x = sx + ((timeNow * w.v + w.o) % (sw + 40)) - 20, hop = reduceMotion ? 0 : Math.round(Math.abs(Math.sin(timeNow * 2 + w.o)) * 2);
+    tumbleweed(x, w.y - hop, w.r, timeNow * w.v / w.r);
+  }
+}
+
+function sceneCastle(sx, sy, sw, sh) {    // Hilti: sunrise over the castle and its crane
+  const gy = sy + sh - 30;
+  skyGradient(sx, sy, sw, gy - sy, CASTLE_BD.sky[0], CASTLE_BD.sky[1]);
+  ell(sx + sw * 0.7, gy - 4, 30, 30, "#fff3b0"); ell(sx + sw * 0.7, gy - 4, 24, 24, "#ffe08a");
+  ell(sx + sw * 0.15, gy + 4, 120, 22, CASTLE_BD.hill); ell(sx + sw * 0.85, gy + 6, 130, 24, CASTLE_BD.hill);
+  rect(sx, gy, sw, sh - (gy - sy), CASTLE_BD.ground[0]);
+  for (let yy = gy; yy < sy + sh; yy += 4) rect(sx, yy, sw, 2, CASTLE_BD.ground[1]);
+  rect(sx, gy, sw, 2, "rgba(255,255,255,0.18)");
+  drawCastle(sx + sw * 0.6, gy + 12);
+}
+
+const SCENES = { school: sceneHallway, campus: sceneGolf, hall: sceneBooth, office: sceneDesert, castle: sceneCastle };
+function drawScene(st, sx, sy, sw, sh) {   // the stop's own backdrop, dimmed so the sprites stand out
+  ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
+  SCENES[st.art || "castle"](sx, sy, sw, sh);
+  rect(sx, sy, sw, sh, "rgba(10,8,18,0.36)");
+  ctx.restore();
+}
+function bigIcon(k, bx, by, bw, bh) {    // a tool icon at 2x, centred in a box
+  const rows = TOOL_ICON[k];
+  spr(rows, bx + ((bw - rows[0].length * 2) >> 1), by + ((bh - rows.length * 2) >> 1), 2);
+}
+function backTile(cx, cy) { rect(cx - 9, cy - 9, 18, 18, "#2b2b3a"); frame(cx - 9, cy - 9, 18, 18, 1, "#f2b705"); }   // lifts icons off light panels and busy backdrops
+function lightLabel(str, x, y, s, align, tint) {   // text over a backdrop: dark text on a light panel with a dark border
+  str = String(str).toUpperCase();
+  const w = Math.round(textW(str, s)) + 8, h = Math.round(7 * s) + 6;
+  const px = align === "center" ? Math.round(x - w / 2) : align === "right" ? Math.round(x - w) : Math.round(x);
+  rect(px - 1, y - 1, w + 2, h + 2, "#1b1426"); rect(px, y, w, h, "#f4f1e6");
+  text(str, px + 4, y + 3, s, tint || "#1b1426", "left");
+  return { x: px, y, w, h };
+}
+function dotsRow(cx, y, cur, n) {          // one dot per stop: visited = solid, current = larger and red, upcoming = hollow
+  const dot = (dx, r, col) => { rect(dx - r, y - r + 1, r * 2 + 1, r * 2 - 1, col); rect(dx - r + 1, y - r, r * 2 - 1, r * 2 + 1, col); };
+  for (let i = 0; i < n; i++) {
+    const dx = Math.round(cx + (i - (n - 1) / 2) * 13);
+    if (i === cur) { dot(dx, 3, "#1b1426"); dot(dx, 2, "#d2051e"); }
+    else if (i < cur) dot(dx, 2, "#1b1426");
+    else { dot(dx, 2, "#1b1426"); dot(dx, 1, "#f4f1e6"); }
+  }
+}
+function traySlot(i, n, tbx, tbw, ty) {       // where tool i sits in the toolkit tray inside the text box
+  const w = Math.min(112, Math.floor((tbw - 16) / n)), x0 = tbx + (tbw - n * w) / 2;
+  return { cx: Math.round(x0 + (i + 0.5) * w), cy: ty + 12, w };
+}
+function toolTile(k, tx, ty) {
+  rect(tx, ty, 24, 24, "rgba(10,8,18,0.55)"); frame(tx, ty, 24, 24, 1, "#f2b705");
+  bigIcon(k, tx, ty, 24, 24);
+}
+
 function drawCard() {
-  const st = STOPS[card.i];
-  const a = Math.min(1, card.anim / 0.14);
+  const st = STOPS[card.i], c = card;
+  const a = reduceMotion ? 1 : Math.min(1, c.anim / 0.14);
   ctx.fillStyle = "rgba(10,8,18," + (0.74 * a).toFixed(3) + ")";
   ctx.fillRect(0, 0, W, H);
+  drawToolkitBar();                                          // the bar stays bright above the dimmed map (and is where tools fly)
 
-  const fw = 316, fh = 156;
+  const fw = CARD.fw, fh = CARD.fh;
   const w = Math.round(fw * (0.86 + 0.14 * a)), h = Math.round(fh * (0.86 + 0.14 * a));
-  const x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
+  const x = Math.round(W / 2 - w / 2), y = Math.round(CARD.top + (fh - h) / 2);
   if (a < 1) { frame(x, y, w, h, 2, "#ffffff"); return; }
 
   rect(x + 3, y + 4, w, h, "rgba(0,0,0,0.45)");
-  rect(x, y, w, h, "#17142a");
+  rect(x, y, w, h, "#10101e");
   frame(x, y, w, h, 2, "#ffffff");
-  rect(x + 2, y + 2, w - 4, 22, "#d2051e");
-  rect(x + 2, y + 2, w - 4, 2, "#ff3348");
-  rect(x + 2, y + 22, w - 4, 2, "#8e0313");
+  // slim title bar (the stop count is the row of dots at the bottom of the card)
+  rect(x + 2, y + 2, w - 4, 14, "#d2051e"); rect(x + 2, y + 2, w - 4, 1, "#ff3348"); rect(x + 2, y + 15, w - 4, 1, "#8e0313");
+  text(titleOf(st), x + 8, y + 4, 1.5, "#ffffff", "left", "#8e0313");
 
-  const title = titleOf(st), ts = textW(title, 2) > w - 70 ? 1 : 2;
-  text(title, x + 10, y + (ts === 2 ? 7 : 11), ts, "#ffffff", "left", "#8e0313");
-  text((card.i + 1) + "/" + STOPS.length, x + w - 10, y + 10, 1, "#ffd3d7", "right");
-
-  if (st.battle) { drawBattleBody(st, x, y, w, h); return; }
-
-  let ty = y + 36;
-  for (const raw of st.lines) {
-    for (const line of wrap(raw, 23)) {
-      rect(x + 12, ty + 4, 4, 4, "#f2b705");
-      text(line, x + 20, ty, 2, "#f3f1ff", "left", "#000000");
-      ty += 20;
-    }
-    ty += 2;
-  }
-
-  rewardRows(st.gears, x, y + h - 12 - st.gears.length * 14, w);
-  promptTag(CONFIG.ui.promptNext, x + w - 10, y + h - 11, 1);
-}
-
-function rewardRow(k, x, ry, w) {          // one gold row for an item picked up
-  rect(x + 10, ry, w - 20, 12, "rgba(242,183,5,0.14)"); frame(x + 10, ry, w - 20, 12, 1, "#f2b705");
-  iconAt(k, x + 12, ry, 12, 12);
-  text(CONFIG.gearNames[k] + " " + CONFIG.ui.acquired, x + 30, ry + 3, 1, "#ffd95e", "left");
-}
-function rewardRows(gears, x, y0, w) { gears.forEach((k, i) => rewardRow(k, x, y0 + i * 14, w)); }
-function noteRow(note, x, ry, w) {          // short card line announced before its item drops
-  rect(x + 10, ry, w - 20, 12, "rgba(255,255,255,0.08)"); frame(x + 10, ry, w - 20, 12, 1, "#ffffff");
-  rect(x + 16, ry + 5, 3, 3, "#ffd95e");
-  text(note, x + 30, ry + 3, 1, "#ffffff", "left");
-}
-function dropSchedule(st) {                 // when each reward starts falling (seconds after the win)
-  let at = 0;
-  return st.rewards.map((r, i) => {
-    if (i) at += 0.5 + (r.note ? 0.9 : 0) - (r.note ? 0 : 0.1);   // plain items follow 0.4s apart; noted items wait for their line
-    return { gear: r.gear, note: r.note, at };
-  });
-}
-
-function drawParty(px, py, s, hop, drops) {   // hero + her teammates standing side by side, drawn big for cards
-  const g = earned(), up = hop ? Math.round(Math.abs(Math.sin(timeNow * 11)) * 3) : 0;
-  const ox = px + 4 * s, oy = py - up, q = s / 2;     // q = grid units per hi-px
-  const falling = k => !!(drops && drops.some(d => d.gear === k && d.p < 1));
-  const skip = {}; for (const k of GEAR_KEYS) skip[k] = falling(k);
-  drawHeroHi(ox, oy, s, true, false, 0, g, skip);
-  (drops || []).forEach(d => {               // rewards fall onto the hero, one after another
-    if (d.p <= 0 || d.p >= 1) return;
-    const sp = HERO_SPOT[d.gear] || [12, 18];
-    spr(GEAR_ICON[d.gear], Math.round(ox + sp[0] * q), Math.round(oy + sp[1] * q - (1 - d.p * d.p) * 70), s);
-  });
-  let mx = ox + 17 * s;
-  mates().forEach((style, k) => {
-    const b = hop ? Math.round(Math.abs(Math.sin(timeNow * 11 + k * 1.6)) * 3) : 0;
-    drawMateHi(mx, py + 4 * s - b, s, true, false, 0, style, k);
-    mx += 12 * s;
-  });
-}
-
-function drawBattleBody(st, x, y, w, h) {
-  const b = st.battle, c = card, bw = w - 20;
-  if (c.phase < 2) {
-    if (c.phase === 0) text(CONFIG.ui.boss, x + 12, y + 30, 1, "#ff6b7d", "left", "#000000");
-    else if (Math.sin(c.t * 30) > 0) text(CONFIG.ui.fight, x + 12, y + 28, 2, "#ffd95e", "left", "#000000");
-    let ty = y + 44;
-    for (const l of wrap(b.boss, 19)) { text(l, x + 12, ty, 2, "#f3f1ff", "left", "#000000"); ty += 18; }
-    ty += 4;
-    for (const l of wrap(b.challenge, 36)) { text(l, x + 12, ty, 1, "#cfcbe6", "left"); ty += 10; }
-    const bk = b.sprite || "ball", sc = BOSS_SCALE[bk] || 4, bs = BOSS_SPRITES[bk], cx = x + w - 46;
-    let bx = cx - 6 * sc, by = y + 26 + (48 - 12 * sc) + Math.round(Math.sin(timeNow * 3) * 2);
-    if (c.phase === 1) bx += Math.round(Math.sin(c.t * 60) * 3);
-    ell(cx, y + 76, 18, 2, "rgba(0,0,0,0.35)");
-    if (!(c.phase === 1 && c.t > 0.8 && Math.sin(c.t * 50) > 0)) {
-      spr(bs, bx, by, sc);
-      if (c.phase === 1 && Math.sin(c.t * 40) > 0.3) spr(bs, bx, by, sc, false, "#ffffff");
-    }
-    drawParty(x + w - 96, y + 74, 2, c.phase === 1);
-    if (b.weapon) {                          // the hero's weapon: held up, then thrown at the boss
-      const wx = x + w - 84, wy = y + 56, tx = cx - 7, ty2 = y + 44;
-      if (c.phase === 0) spr(GEAR_ICON[b.weapon], wx, wy + Math.round(Math.sin(timeNow * 3)), 2);
-      else for (let k = 0; k < 2; k++) {
-        const p = (c.t * 2.5 + k / 2) % 1;
-        if (p < 0.92) spr(GEAR_ICON[b.weapon], Math.round(wx + (tx - wx) * p), Math.round(wy + (ty2 - wy) * p - Math.sin(p * Math.PI) * 8), 2);
+  // scene panel (top two-thirds)
+  const sx = x + 2, sy = y + 16, sw = w - 4, sh = CARD.sh;
+  drawScene(st, sx, sy, sw, sh);
+  ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
+  const bt = st.battle, ph = bt ? c.phase : 2, gy = sy + sh - 16;
+  let powerFx = null;                                        // drawn after the scene clip so it can start up in the toolkit bar
+  if (bt && ph < 2) {                                        // the boss, large on the right, with its health bar above it
+    const T = atkTimes(), cx = sx + sw - 84, draw = BOSS_DRAW[bt.sprite] || drawDragonBoss, atk = c.atk, fading = c.fade >= 0;
+    const alpha = fading ? Math.max(0, 1 - c.fade / T.fade) : 1;                      // the defeated boss fades out
+    const hitOn = atk >= T.hit && atk < T.hit + 0.25;                                 // one steady white tint (no strobing) as the blow lands
+    const shake = hitOn && !reduceMotion ? Math.round(Math.sin(atk * 70) * 4) : 0;
+    let hp;                                                                           // each blow takes a third off
+    if (fading) hp = 0;
+    else if (atk >= 0) hp = 1 - (c.hits - 1) / hitsNeeded() - Math.max(0, Math.min(1, (atk - T.hit) / T.ramp)) / hitsNeeded();
+    else hp = 1 - c.hits / hitsNeeded();
+    hp = Math.max(0, hp);
+    ctx.globalAlpha = alpha;
+    ell(cx, gy + 1, 30, 3, "rgba(0,0,0,0.35)");
+    if (hitOn) tinted("#ffffff", () => draw(cx + shake, gy)); else draw(cx + shake, gy);
+    const nmw = Math.round(textW(bt.boss, 1.5)), pw0 = Math.max(90, nmw + 10), ph0 = 21;       // a light panel holds the name and the health bar
+    const px0 = Math.round(Math.min(cx - pw0 / 2, sx + sw - pw0 - 3)), py0 = sy + 2, bw0 = pw0 - 10;
+    rect(px0 - 1, py0 - 1, pw0 + 2, ph0 + 2, "#1b1426"); rect(px0, py0, pw0, ph0, "#f4f1e6");
+    text(bt.boss, px0 + pw0 / 2, py0 + 2, 1.5, "#1b1426", "center");
+    rect(px0 + 4, py0 + 14, bw0 + 2, 6, "#1b1426"); rect(px0 + 5, py0 + 15, bw0, 4, "#c9c4b4");
+    rect(px0 + 5, py0 + 15, Math.round(bw0 * hp), 4, hp > 0.5 ? "#2f9e4f" : hp > 0.2 ? "#f2b705" : "#d2051e");
+    ctx.globalAlpha = 1;
+    const wk = bt.weapon, melee = wk === "club", fx = !reduceMotion && atk >= 0;
+    const lunge = fx ? Math.round(Math.sin(Math.min(1, atk / (T.hit + 0.15)) * Math.PI) * (melee ? 14 : 5)) : 0;
+    drawParty(sx + 28, gy, false, null, lunge, st.party === "beside");
+    const hx = sx + 28 + 40 + lunge, hy = gy - 30, tx = cx - 10, ty2 = gy - 42;
+    const pw = bt.power && earned().has(bt.power) ? bt.power : null, pStart = pw && fx ? 0.3 : 0.08;   // a powered fight is fed by its glowing tool first
+    if (wk === "sanitizer") {                                // scripted prop: appears in her hand when Enter is pressed, gone once the germ is
+      if (ph === 1) drawSanitizerProp(hx, hy, atk, T, cx - 18, gy - 40, fx);
+    } else if (wk) {                                         // the hero uses the stop's tool: club = swung, others = thrown
+      if (ph === 0 && !melee) spr(TOOL_ICON[wk], sx + 40, sy + 6 + (reduceMotion ? 0 : Math.round(Math.sin(timeNow * 3))), 3);
+      if (fx && melee && atk > 0.05 && atk < T.hit + 0.2) {
+        const p = Math.min(1, (atk - 0.05) / (T.hit - 0.05)), ang = (-140 + 170 * p) * Math.PI / 180;
+        for (let k = 1; k <= 5; k++) { const a2 = ang - k * 0.1; rect(hx + Math.cos(a2) * 40, hy + Math.sin(a2) * 40, 3, 3, "rgba(255,255,255," + (0.65 - k * 0.11).toFixed(2) + ")"); }
+        const ex = hx + Math.cos(ang) * 40, ey = hy + Math.sin(ang) * 40;                    // shaft from her hand out to the club head
+        for (let k = 0; k <= 10; k++) rect(hx + (ex - hx) * k / 10, hy + (ey - hy) * k / 10, 2, 2, k < 3 ? "#1b1426" : "#cdd3de");
+        rect(ex - 5, ey - 3, 11, 7, "#1b1426"); rect(ex - 4, ey - 2, 9, 5, "#e8ecf4"); rect(ex - 4, ey - 2, 9, 1, "#ffffff"); rect(ex - 4, ey + 2, 9, 1, "#9aa0b0");
+      } else if (fx && !melee && atk > pStart && atk < T.hit) {
+        const p = (atk - pStart) / (T.hit - pStart);
+        spr(TOOL_ICON[wk], Math.round(hx + (tx - hx) * p - 10), Math.round(hy + (ty2 - hy) * p - Math.sin(p * Math.PI) * 16 - 10), 3);
       }
     }
-    const lines = wrap(CONFIG.ui.loot + ": " + b.powerUp, 42), bh = 10 + lines.length * 10, py = y + h - 12 - bh;
-    rect(x + 10, py, bw, bh, "rgba(242,183,5,0.14)"); frame(x + 10, py, bw, bh, 1, "#f2b705");
-    const pi = st.gears[0];
-    if (pi) iconAt(pi, x + 12, py, 14, bh);
-    lines.forEach((l, j) => text(l, x + 30, py + 7 + j * 10, 1, "#ffd95e", "left"));
-    if (c.phase === 0) promptTag(CONFIG.ui.promptFight, x + w - 10, y + h - 11, 1);
-    return;
+    if (pw && fx && atk < pStart) powerFx = { pw, hx, hy, atk, pStart };
+  } else {                                                   // won, or a plain stop: party + tools
+    const sch = bt ? dropSchedule(st) : null;
+    const nx = !bt || st.script ? STOPS[card.i + 1] : null;
+    if (nx && nx.mystery) {                                  // teaser for the next, still-hidden stop
+      const ex = sx + sw - 84, ey = gy - 40 + Math.round(Math.sin(timeNow * 3) * 2);
+      if (isMystery(nx)) {
+        tinted("#707489", () => drawTTEmblem(ex, ey));
+        text("?", ex, ey - 16, 4, "#ffffff", "center", "#1b1426");
+      } else {
+        drawTTEmblem(ex, ey);
+        lightLabel(nx.mystery.label, ex, sy + 3, 1.5, "center");
+      }
+    }
+    drawParty(sx + 28, gy, !!bt && !st.script, null, 0, st.party === "beside");
+    if (!bt) { const n = st.tools.length; st.tools.forEach((k, i) => toolTile(k, sx + sw - 12 - (n - i) * 28 + 4, sy + 52)); }
+    if (bt && !st.script) {
+      lightLabel(CONFIG.ui.victory, sx + sw / 2 + 24, sy + 3, 2, "center", "#b01428");
+      if (st.team && c.t >= sch[sch.length - 1].at + toolDone()) lightLabel(st.team + " " + CONFIG.ui.joined, sx + sw - 8, sy + 28, 1.5, "right");
+    }
   }
-  text(CONFIG.ui.victory, x + 12, y + 30, 3, "#ffd95e", "left", "#8a6a00");
-  let ty = y + 58;                           // the loot line, small, under VICTORY!
-  for (const l of wrap(st.loot, 34)) { text(l, x + 12, ty, 1, "#f3f1ff", "left", "#000000"); ty += 10; }
-  const sch = dropSchedule(st);
-  drawParty(x + w - 96, y + 27, 2, true, sch.map(r => ({ gear: r.gear, p: Math.max(0, Math.min(1, (c.t - r.at) / 0.5)) })));
-  let ry = ty + 4;
-  sch.forEach(r => {
-    if (r.note) { if (c.t >= r.at - 0.9) noteRow(r.note, x, ry, w); ry += 14; }
-    if (c.t >= r.at + 0.5) rewardRow(r.gear, x, ry, w);
-    ry += 14;
-  });
-  if (st.team && c.t >= sch[sch.length - 1].at + 0.5) {
-    rect(x + 10, ry, bw, 12, "rgba(47,111,208,0.18)"); frame(x + 10, ry, bw, 12, 1, "#6fa3ff");
-    text(st.team + " " + CONFIG.ui.joined, x + 16, ry + 3, 1, "#bcd6ff", "left");
+  ctx.restore();
+  if (powerFx) {                                             // community powers the attack: a heart streams from the glowing toolkit slot to the hero
+    const { pw, hx, hy, atk, pStart } = powerFx, k = TOOL_KEYS.indexOf(pw);
+    const fx0 = HUD_BAR.gx + k * HUD_BAR.pitch + HUD_BAR.sw / 2, fy0 = HUD_BAR.gy + HUD_BAR.sh / 2;
+    const at = (q) => { const e = q * q * (3 - 2 * q); return [fx0 + (hx - fx0) * e, fy0 + (hy - fy0) * e - Math.sin(q * Math.PI) * 16]; };
+    const p = Math.min(1, atk / pStart);
+    for (let t2 = 4; t2 >= 1; t2--) { const q = at(Math.max(0, p - t2 * 0.07)); rect(q[0], q[1], 3, 3, "rgba(255,120,150," + (0.7 - t2 * 0.13).toFixed(2) + ")"); }
+    const pos = at(p); spr(TOOL_ICON[pw], Math.round(pos[0] - 7), Math.round(pos[1] - 6), 2);
   }
-  promptTag(CONFIG.ui.promptNext, x + w - 10, y + h - 11, 1);
+
+  // text box (bottom third): a light panel with a dark border, dark text, and the row of progress dots at the bottom
+  const ty = y + 16 + sh + 1, th = h - (ty - y) - 2;
+  rect(x + 2, ty, w - 4, th, "#f4f1e6"); frame(x + 2, ty, w - 4, th, 2, "#1b1426");
+  let line;
+  const tbx = x + 2, tbw = w - 4, ink = "#1b1426";
+  if (bt && c.phase === 2 && !st.script) {                   // victory: the toolkit tray, then the skills line
+    const sch = dropSchedule(st), T = toolTimes(), done = toolDone(), n = sch.length;
+    const note = sch.find(r => r.note && c.t >= r.at - 0.9 && c.t < r.at + T.pop);
+    line = note ? note.note : CONFIG.ui.toolkit + ": " + st.toolkit;
+    sch.forEach((r, i) => {
+      const sp = traySlot(i, n, tbx, tbw, ty), u = c.t - r.at, x0 = sp.cx - sp.w / 2 + 3;
+      rect(x0, ty + 4, sp.w - 6, 26, "#e6e2d2"); frame(x0, ty + 4, sp.w - 6, 26, 1, "#9a9684");
+      const shown = u >= T.pop, gone = u >= done;
+      if (shown) text(CONFIG.toolNames[r.tool], sp.cx, ty + 21, 1, gone ? "#1d6f42" : ink, "center");
+      if (shown && u < T.pop + T.hold) { const ic = TOOL_ICON[r.tool]; backTile(sp.cx, sp.cy); spr(ic, Math.round(sp.cx - ic[0].length), Math.round(sp.cy - ic.length), 2); }
+      else if (gone) spr(SPR_CHECK, sp.cx - 3, sp.cy - 3, 1, false, "#1d8f4a");
+    });
+    wrap(line, 35).slice(0, 2).forEach((l, j) => text(l, x + 10, ty + 33 + j * 11, 1.5, ink, "left"));
+  } else {
+    let rows = st.lines.flatMap(l => wrap(l, 35)), accent = -1;      // each configured line gets its own row
+    if (st.script) {                                         // the scripted card shows its prompt in the last row
+      const nxs = STOPS[card.i + 1];
+      if (c.phase === 0) { rows = rows.concat(CONFIG.ui.sanitize); accent = rows.length - 1; }
+      else if (c.stage === 0) { rows = [CONFIG.ui.ask, CONFIG.ui.reveal]; accent = 1; }
+      else rows = [(nxs && nxs.mystery ? nxs.mystery.label : "NEXT") + "."];
+    }
+    rows.slice(0, 4).forEach((l, j) => text(l, x + 10, ty + 6 + j * 13, 1.5, j === accent ? "#b01428" : ink, "left"));
+  }
+  dotsRow(x + w / 2, ty + th - 6, card.i, STOPS.length);
+  {                                                          // "press space" tab on the text box edge
+    const lab = st.script && (ph < 2 || c.stage === 0) ? CONFIG.ui.promptEnter : CONFIG.ui.promptSpace, tw = Math.round(textW(lab, 1.5)) + 18;
+    const tx = x + w - tw - 6;
+    rect(tx, ty - 14, tw, 15, "#1b1426"); frame(tx, ty - 14, tw, 15, 1, "#f4f1e6");
+    text(lab, tx + 5, ty - 10, 1.5, "#ffffff", "left");
+    if (Math.sin(timeNow * 4) > -0.35) { rect(tx + tw - 9, ty - 11, 2, 7, "#ffd95e"); rect(tx + tw - 7, ty - 10, 2, 5, "#ffd95e"); rect(tx + tw - 5, ty - 9, 2, 3, "#ffd95e"); }
+  }
+  if (bt && c.phase === 2) {                                 // tools in flight: pop out of the boss -> tray, then tray -> toolkit bar
+    const sch = dropSchedule(st), T = toolTimes(), n = sch.length, bx = sx + sw - 84, by = gy - 44;
+    sch.forEach((r, i) => {
+      const sp = traySlot(i, n, tbx, tbw, ty), u = c.t - r.at, k = TOOL_KEYS.indexOf(r.tool);
+      const ic = TOOL_ICON[r.tool], put = (cx, cy, sc) => { if (sc > 1) backTile(cx, cy); spr(ic, Math.round(cx - ic[0].length * sc / 2), Math.round(cy - ic.length * sc / 2), sc); };
+      if (u >= 0 && u < T.pop) {                              // pops up out of the boss, arcs, then floats down into its slot
+        const p = u / T.pop, e = p * p * (3 - 2 * p);
+        const px = bx + (sp.cx - bx) * e + (reduceMotion ? 0 : Math.sin(p * Math.PI * 3) * 7 * (1 - p));
+        const py = by + (sp.cy - by) * (0.4 * p + 0.6 * e) - (reduceMotion ? 0 : Math.sin(p * Math.PI) * 42);
+        put(px, py, 2);
+      } else if (u >= T.pop + T.hold && u < toolDone()) {     // the same tool flies up into the toolkit bar
+        const p = (u - T.pop - T.hold) / T.fly, e = p * p * (3 - 2 * p);
+        const tx2 = HUD_BAR.gx + k * HUD_BAR.pitch + HUD_BAR.sw / 2, ty2 = HUD_BAR.gy + HUD_BAR.sh / 2;
+        put(sp.cx + (tx2 - sp.cx) * e, sp.cy + (ty2 - sp.cy) * e - (reduceMotion ? 0 : Math.sin(p * Math.PI) * 14), p > 0.6 ? 1 : 2);
+      }
+    });
+  }
 }
+
+// Each tool is added in three beats: it pops out of the defeated boss and floats down into the toolkit tray in the text box
+// (pop), rests there with its name under it (hold), then flies up into the toolkit bar (fly).
+function toolTimes() { return reduceMotion ? { gap: 0.35, pop: 0.05, hold: 0.3, fly: 0.05 } : { gap: 0.6, pop: 1.0, hold: 0.5, fly: 0.6 }; }
+function toolDone() { const T = toolTimes(); return T.pop + T.hold + T.fly; }     // seconds until a tool counts as in the toolkit bar
+function dropSchedule(st) {                  // when each tool pops out of the boss (seconds after the win)
+  let at = 0;
+  return st.toolSteps.map((r, i) => {
+    if (i) at += toolTimes().gap + (r.note ? 0.9 : 0);     // a noted tool waits for its card line
+    return { tool: r.tool, note: r.note, at };
+  });
+}
+
+function drawParty(ox, feetY, hop, drops, lunge, beside) {  // big battle-scene party: hero (4x the map size) in front, teammates behind her
+  const g = earned(), s = 4, q = s / 2;            // q = grid units per hi-px
+  const falling = k => !!(drops && drops.some(d => d.tool === k && d.p < 1));
+  const skip = {}; for (const k of TOOL_KEYS) skip[k] = falling(k);
+  const up = (k) => (hop && !reduceMotion ? Math.round(Math.abs(Math.sin(timeNow * 11 + k * 1.6)) * 5) : 0);
+  const ms = mates();
+  for (let k = ms.length - 1; k >= 0; k--)         // back row first so the hero stands in front of them
+    drawMateHi(ox + (beside ? 76 : 68) + k * 38, feetY - (beside ? 0 : 5 + k * 5) - 32 * q - up(k + 1), s, true, false, 0, ms[k], k);
+  const oy = feetY - 40 * q - up(0);
+  drawHeroHi(ox + (lunge || 0), oy, s, true, false, 0, g, skip);
+  (drops || []).forEach(d => {                       // tools fall onto the hero, one after another
+    if (d.p <= 0 || d.p >= 1) return;
+    const sp = HERO_SPOT[d.tool] || [12, 18];
+    spr(TOOL_ICON[d.tool], Math.round(ox + sp[0] * q - 7), Math.round(oy + sp[1] * q - (1 - d.p * d.p) * 90), 3);
+  });
+}
+
 
 /* ----------------------------------------------------------------- scenes -- */
 function drawTitle() {
@@ -1379,8 +1843,9 @@ function drawTitle() {
   text(CONFIG.subtitle, W / 2, 92, 1, "#ffd3d7", "center", "#1b1426");
   if (CONFIG.byline) text(CONFIG.byline, W / 2, 108, 1, "rgba(255,255,255,0.6)", "center", "#1b1426");
 
-  // gear showcase
-  GEAR_KEYS.forEach((k, i) => {
+  // toolkit showcase
+  text(CONFIG.ui.toolkitBar, W / 2, 120, 1, "#ffd95e", "center", "#1b1426");
+  TOOL_KEYS.forEach((k, i) => {
     const x = W / 2 - 92 + i * 28, y = 132;
     rect(x - 2, y - 2, 20, 22, "rgba(255,255,255,0.10)");
     frame(x - 2, y - 2, 20, 22, 1, "rgba(255,255,255,0.35)");
@@ -1388,7 +1853,7 @@ function drawTitle() {
   });
 
   if (Math.sin(timeNow * 4) > -0.35)
-    text(CONFIG.pressStart, W / 2, 180, 2, "#ffffff", "center", "#1b1426");
+    lightLabel(CONFIG.pressStart, W / 2, 172, 2, "center");
 }
 
 function drawMapScene() {
@@ -1396,8 +1861,9 @@ function drawMapScene() {
   drawStartMarker();
 
   const items = [];
-  for (const t of TREES) items.push({ y: t.y, f: () => drawTree(t.x, t.y, t.big, t.pine) });
-  for (const o of PROPS) items.push({ y: o.y, f: () => drawProp(o) });
+  ensureSigns();
+  for (const t of TREES) if (!underSign(t.x - 7, t.y - 17, 14, 19)) items.push({ y: t.y, f: () => drawTree(t.x, t.y, t.big, t.pine) });
+  for (const o of PROPS) if (!underSign(o.x - 6, o.y - 7, 12, 9)) items.push({ y: o.y, f: () => drawProp(o) });
   items.push({ y: 86, f: () => drawCastle(332, 90) });
   STOPS.forEach((st, i) => {
     const status = i < idx ? "done" : i === idx ? (state === S.WALK && !walk.back ? "locked" : "next") : "locked";
@@ -1421,12 +1887,10 @@ function drawMapScene() {
   drawHintBar();
 
   if (state === S.MAP) {
-    const label = idx >= STOPS.length ? "FINISH" : "SPACE";
-    promptTag(label, W - 8, H - 14, 1);
-    if (idx < STOPS.length && isMystery(STOPS[idx]))
-      text("ENTER: REVEAL", W - 10, H - 38, 1, "#ffd95e", "right", "#1b1426");
-    if (idx < STOPS.length)
-      text("NEXT: " + labelOf(STOPS[idx]), W - 10, H - 26, 1, "rgba(255,255,255,0.75)", "right", "#1b1426");
+    const hidden = idx < STOPS.length && isMystery(STOPS[idx]);
+    if (idx < STOPS.length && !hidden) lightLabel("NEXT: " + labelOf(STOPS[idx]), W - 6, H - 42, 1.5, "right");   // "NEXT: ???" says nothing, so it is dropped while hidden
+    if (hidden) lightLabel(CONFIG.ui.promptEnter + " TO REVEAL", W - 6, H - 42, 1.5, "right");                      // ENTER reveals the hidden stop
+    lightLabel(CONFIG.ui.promptSpace, W - 6, H - 22, 1.5, "right");                                                  // SPACE walks on (or finishes)
   }
 }
 
@@ -1438,14 +1902,15 @@ function drawEnd() {
   let y = 98;
   for (const raw of CONFIG.endLines)
     for (const l of wrap(raw, 26)) { text(l, W / 2, y, 2, "#f3f1ff", "center", "#000000"); y += 20; }
-  GEAR_KEYS.forEach((k, i) => {
+  text(CONFIG.ui.toolkitBar, W / 2, 130, 1, "#ffd95e", "center", "#1b1426");
+  TOOL_KEYS.forEach((k, i) => {
     const x = W / 2 - 92 + i * 28, yy = 142;
     rect(x - 2, yy - 2, 20, 22, "rgba(255,255,255,0.12)");
     frame(x - 2, yy - 2, 20, 22, 1, "#f2b705");
     iconAt(k, x - 2, yy - 2, 20, 22);
   });
   if (Math.sin(timeNow * 3) > -0.4)
-    text(CONFIG.endPrompt, W / 2, 180, 2, "#ffd95e", "center", "#1b1426");
+    lightLabel(CONFIG.endPrompt, W / 2, 172, 2, "center");
 }
 
 function drawParticles() {
@@ -1457,7 +1922,8 @@ let last = performance.now();
 function tick(now) {
   let dt = (now - last) / 1000; last = now;
   if (dt > 0.1) dt = 0.1;
-  timeNow += dt;
+  if (dt < 0) dt = 0;
+  if (!reduceMotion) timeNow += dt;          // frozen clock = no idle animation
 
   if (state === S.WALK) {
     walk.t += dt;
@@ -1476,7 +1942,25 @@ function tick(now) {
     }
   }
   if (card) card.anim += dt;
-  if (card) { card.t += dt; if (card.phase === 1 && card.t >= 1.1) winBattle(); }
+  if (card) {
+    card.t += dt;
+    if (card.phase === 1) {
+      const T = atkTimes();
+      if (card.atk >= 0) {
+        const before = card.atk;
+        card.atk += dt;
+        if (before < T.hit && card.atk >= T.hit) { burst(bossPt().x, bossPt().y, "#ffffff", 12); burst(bossPt().x, bossPt().y, "#f2b705", 6); }   // the blow lands
+        if (card.atk >= T.dur) finishAttack();
+      } else if (card.fade >= 0) { card.fade += dt; if (card.fade >= T.fade) winBattle(); }
+    } else if (card.phase === 2 && STOPS[card.i].battle) {
+      const T = toolTimes(), t0 = card.t - dt;
+      dropSchedule(STOPS[card.i]).forEach(r => {
+        if (t0 < r.at && card.t >= r.at) burst(bossPt().x, bossPt().y, "#ffd95e", 10);                        // pops out of the boss
+        const arrive = r.at + toolDone();
+        if (t0 < arrive && card.t >= arrive) burst(HUD_BAR.gx + TOOL_KEYS.indexOf(r.tool) * HUD_BAR.pitch + 6, 12, "#ffffff", 8);   // lands in the bar
+      });
+    }
+  }
   if (flash > 0) flash -= dt;
 
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -1489,7 +1973,7 @@ function tick(now) {
   else if (state === S.END) drawEnd();
   else { drawMapScene(); if (state === S.CARD) { drawCard(); drawParticles(); } }
 
-  if (flash > 0) {
+  if (flash > 0 && !reduceMotion) {
     ctx.fillStyle = "rgba(255,255,255," + Math.min(0.5, flash * 1.6).toFixed(3) + ")";
     ctx.fillRect(0, 0, W, H);
   }
