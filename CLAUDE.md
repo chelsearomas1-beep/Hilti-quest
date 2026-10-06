@@ -29,7 +29,7 @@ is earned.
 
 Skills the tools stand for (the card text after "ADDED TO TOOLKIT:"): Undergrad = time management, community (club, clock, heart);
 Booth = analytical thinking, leadership (glasses, shield); Masked Rider Capital = financial modeling, private markets (Excel badge);
-Hilti = the hard hat (building; plain card).
+Hilti = the hard hat (dropped by the castle finale, below).
 
 - Tools on a battle stop are added only once the boss is beaten; on other stops, on arrival.
 - Worn on the hero (a female character): golf club (hand), leadership shield (arm), smarty glasses (face), hard hat (head, last).
@@ -90,7 +90,14 @@ Prompt wording lives in `CONFIG.ui` (`promptSpace` = "PRESS SPACE", `promptEnter
      (`drawSanitizerProp`) hits the germ, the bar empties and the germ fades (one hit, `hitsNeeded()`).
      The bottle is a temporary prop drawn only while the attack and fade play; it is not in `TOOL_ICON`/`TOOL_KEYS` and never enters `earned()`.
   2. The question "WHERE DO I GO TO SCHOOL?" with a grey silhouette + "?" and the prompt "PRESS ENTER TO REVEAL." Enter reveals the
-     red-and-black Double T logo (`drawTTEmblem`) with a short flash and sparkles, and the text "TEXAS TECH." (`card.stage` 0 -> 1).
+     Texas Tech logo with a short flash and sparkles, and the text "TEXAS TECH." (`card.stage` 0 -> 1).
+     The logo is `texas_tech_logo.jpeg` (must sit next to `index.html`; set by `mystery.logo` in CONFIG). `logoCanvas()` pixelates it by drawing
+     it onto a small offscreen canvas (56 px wide before cropping in the popup, 16 on the map sign), then removes the white background in code:
+     near-white pixels (all channels > 225, a little slack for JPEG noise) connected to the image edge become transparent, white inside the logo
+     stays, and the canvas is cropped to the logo. It is scaled up with `imageSmoothingEnabled = false`. The "?" silhouette is that same shape
+     filled grey. Reading pixels needs a same-origin image: from `file://` Chrome blocks it, so the logo then falls back to an un-keyed plaque
+     (white background kept); serve the folder over http (or open with `--allow-file-access-from-files`) for the transparent version.
+     If the image fails to load, the drawn Double T (`drawTTEmblem`) is used. The revealed Texas Tech sign on the overview map shows the same logo, small, left of the name.
   3. Space then closes the card. The scripted card is exclusive: Enter acts (use sanitizer, reveal) and Space only continues once the answer is shown.
   The map's school has a Texas flag on its flagpole (`texasFlag`): a blue bar with a white star on the left, white over red on the right,
   rippling gently (frozen under reduced motion).
@@ -128,7 +135,7 @@ the title screen's PRESS SPACE. The wooden stop signs and the toolkit bar keep t
     mesas (`mesa`) behind layered sand dunes, five saguaro cacti (`saguaro`) and three tumbleweeds (`tumbleweed`) that roll slowly across at
     different depths and speeds (4-9 units/s) with a small hop. They run off `timeNow`, which reduced motion freezes, so they sit still and
     do not hop then. The MRC office tower is not in this backdrop (it is still the map landmark).
-  - Hilti (`sceneCastle`): sunrise over the castle and its crane.
+  - Hilti (`sceneCastle`, and `sceneFinale` for the finale): sunrise over the castle and its crane.
   Plain stops show the party and any tool tile. See "Mystery reveal" above for the High School germ + Texas Tech sequence.
 - Tools (victory): when a boss is defeated each tool is added in three beats (`toolTimes`: pop 1.0s, hold 0.5s, fly 0.6s, 0.6s apart,
   `dropSchedule`). It pops out of where the boss stood, arcs up and floats down into a slot of the toolkit tray in the text box
@@ -159,16 +166,33 @@ A stop with a non-empty `boss` is a battle card (the engine builds `st.battle` f
   map reopens it, so an unfinished fight blocks the road.
 - Every battle card draws the party (`drawParty`): the hero with the tools worn so far, plus teammates beside him.
   The party hops after a win; on victory the tools pop out of the boss, one after another, as described above.
-- Undergrad boss: THE CALENDAR DRAGON ("FOUR-TIME LETTER WINNER."; toolkit "TIME MANAGEMENT, COMMUNITY."), `sprite: "dragon"`.
+- Undergrad boss: THE 6 AM ALARM (`sprite: "alarm"`; toolkit "TIME MANAGEMENT, COMMUNITY."). Before the fight its text box is a bulleted list:
+  heading "I JUGGLED IT ALL:" then four equal bullets (VP OF SAAC, DAILY PRACTICES, 6AM WORKOUTS, RIGOROUS ACADEMICS), all at the same indent and size
+  (no sub-bullets). It is written in `line` with `- ` for each bullet; `drawCard` draws a solid square before each and packs five rows closer. Three attacks defeat it; it drops the club, clock and heart, and the two teammates join.
 - Bosses are drawn procedurally at about 70 grid units tall, each with its own personality, an idle animation and a health bar +
   name above it (`BOSS_DRAW`; `tinted()` gives the white hit-flash and the grey silhouettes):
-  - `dragon` (THE CALENDAR DRAGON, `drawDragonBoss`): a green dragon with calendar-page wings and a calendar belly, a planner in its claws,
-    smoke puffs, a swishing tail and three clocks (moving hands) orbiting it.
+  - `alarm` (THE 6 AM ALARM, `drawAlarmBoss`): a giant angry red alarm clock with gold bell ears (they jitter), a hammer, small legs, a face with
+    spinning hands, angry eyes and a jagged mouth, and little music notes + ringing lines around it. Idle wobble (x sway + bounce); frozen under
+    reduced motion.
   - `exam` (FINALS, `drawFinalsBoss`): a tall stack of exam papers with angry eyes, a jagged mouth, pencil/pen arms, loose sheets
     fluttering off the top and a circled red "A-" on the top sheet.
   - `tornado` (THE ROLL-UP TWISTER, `drawTwisterBoss`): a spinning striped funnel with an angry face and flying spreadsheet cells
     (`sheetCell`) orbiting it, some in front and some behind.
 - Teammates trail the hero along the road (`mates()`, `drawMate`), and disappear if the hero walks back before the stop.
+
+## Hilti finale (`finale` in the Hilti stop; all its text is in CONFIG)
+
+The Hilti card is a four-screen sequence (`card.stage` 0-3, `card.st` = seconds in the current screen). Space goes to the next screen; `sceneFinale`
+draws the scenes, the text box shows that screen's text. The stop's `line` is the first screen's heading; the rest is in `finale`.
+0. **Value towers**: four stone towers (`finale.values`, placeholder names INTEGRITY / COURAGE / TEAMWORK / COMMITMENT) light up one after another
+   (windows glow, flags turn gold); each name appears in the text box as its tower lights. (The map castle has two towers; these four exist only in this scene.)
+1. **Globe**: a pixel globe (`drawGlobe`, 2x2 blocks, tilted 25 degrees, slowly turning; still under reduced motion) with a red pin per entry of
+   `finale.places` (`{ name, lat, lon }`; LUBBOCK, CHICAGO, SCHAAN are placeholders: add yours). Pins pop in one by one and only show on the visible side.
+   Continents come from the coarse `LAND_ROWS` table. Text: `finale.globe` (one row per `\n`).
+2. **Steps**: three numbered stone steps rise toward the castle on its hill. Text: `finale.steps`, one numbered row each (scale 1 so all three fit).
+3. **Hat + toolkit**: the hard hat falls onto her head (`drawParty` drops), then all seven toolkit compartments light up in turn (gold, `drawToolkitBar`),
+   then `finale.quote` and `finale.done` ("TOOLKIT COMPLETE.") show. Space during this fast-forwards, then finishes the quest. The hat counts as earned only
+   once it lands (`won[i]`), so the toolkit's hat slot is dim until then. Reduced motion: everything appears at once (`finaleTimes`).
 
 ## Resolution and art detail
 
@@ -204,4 +228,8 @@ A stop with a non-empty `boss` is a battle card (the engine builds `st.battle` f
   sign, drawn in `drawSigns`; the landmark itself no longer carries a floating badge. Each sign reserves 11 units above it for the tab,
   and labels over 14 chars wrap to two lines. The Masked Rider sign sits ~27 units below its tower, beneath the road, because the road runs
   directly under that building and nothing beside it is free.
+- Countdown timer (`drawTimer`, `TIMER_BOX`): 8:00 (`TIMER_SECS`) counting down as m:ss in a small dark box in the top-right corner, in the hint bar's empty
+  top-right area (its text lines end at x=341, the box starts at 346). It starts on the first Space on the title screen (`timerOn`), runs on real time
+  (not frozen by reduced motion), turns gold in the last minute and red at 0:00 (it stops there), pauses on the finish screen, is hidden on the title
+  screen and resets with R.
 - The controls hint is a two-line bar drawn on the canvas at the top right (`drawHintBar`, `HINT_BAR`), clear of START/HIGH SCHOOL.

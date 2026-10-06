@@ -32,7 +32,7 @@
    teammates follow after a win), hits (attacks that defeat the boss, default 3), script ("germ": Enter does the
    attacking, then asks where to go to school and reveals the next stop; weapon "sanitizer" is a temporary prop, never a tool), party ("beside": teammates stand next to the hero instead of behind), power (the
    tool that powers the fight: glows and pulses in the toolkit bar and feeds each attack), sprite (boss look), weapon (the tool used to attack the boss: club = swung, others thrown),
-   mystery ({label, title} while hidden), isCastle.
+   finale ({values, globe, places, steps, quote, done}: the Hilti castle sequence), mystery ({label, title, logo} while hidden; logo = an image file next to index.html), isCastle.
    =========================================================================== */
 const CONFIG = {
 
@@ -49,9 +49,9 @@ const CONFIG = {
       art: "school", tools: [], sprite: "germ", weapon: "sanitizer", hits: 1, script: "germ" },
 
     { title: "UNDERGRAD (D1 GOLF)",
-      boss: "THE CALENDAR DRAGON", line: "FOUR-TIME LETTER WINNER.", toolkit: "TIME MANAGEMENT, COMMUNITY.",
-      art: "campus", tools: ["club", "clock", "heart"], team: 2, sprite: "dragon", weapon: "club",
-      mystery: { label: "TEXAS TECH", title: "TEXAS TECH (D1 GOLF)" } },
+      boss: "THE 6 AM ALARM", line: "I JUGGLED IT ALL:\n- VP OF SAAC\n- DAILY PRACTICES\n- 6AM WORKOUTS\n- RIGOROUS ACADEMICS", toolkit: "TIME MANAGEMENT, COMMUNITY.",
+      art: "campus", tools: ["club", "clock", "heart"], team: 2, sprite: "alarm", weapon: "club",
+      mystery: { label: "TEXAS TECH", title: "TEXAS TECH (D1 GOLF)", logo: "texas_tech_logo.jpeg" } },
 
     { title: "BOOTH MIF",
       boss: "FINALS", line: "COMMUNITY POWERS THE FIGHT.", toolkit: "ANALYTICAL THINKING, LEADERSHIP.",
@@ -63,8 +63,21 @@ const CONFIG = {
       art: "office", tools: ["excel"], sprite: "tornado", weapon: "excel" },
 
     { title: "HILTI",
-      boss: "", line: "WHERE IT ALL BUILDS.", toolkit: "",
-      isCastle: true, tools: ["hat"] }
+      boss: "", line: "FOUR VALUES LIGHT THE WAY.", toolkit: "",       // line = the first screen (the four value towers)
+      isCastle: true, tools: ["hat"],
+      finale: {                                                          // the castle sequence: towers -> globe -> steps -> hat + toolkit
+        values: ["INTEGRITY", "COURAGE", "TEAMWORK", "COMMITMENT"],      // the four towers (placeholder names: edit freely)
+        globe: "MULTICULTURAL HOME.\nSTUDY ABROAD.\nGLOBAL IS NORMAL.",
+        places: [                                                        // one pin on the globe per place (placeholders: add yours)
+          { name: "LUBBOCK", lat: 33.6, lon: -101.9 },
+          { name: "CHICAGO", lat: 41.9, lon: -87.6 },
+          { name: "SCHAAN", lat: 47.2, lon: 9.5 }
+        ],
+        steps: ["NOW: OUTPERFORMER PROGRAM",
+                "IN TWO YEARS: ACCOUNT DEVELOPMENT, GROWING GLOBAL ACCOUNTS",
+                "FURTHER OUT: NATIONAL OR REGIONAL ACCOUNT EXECUTIVE"],
+        quote: "TRAVEL IS THE BEST EDUCATOR.", done: "TOOLKIT COMPLETE."
+      } }
   ],
 
   ui: {                    // fixed words on the cards
@@ -405,17 +418,20 @@ let reduceMotion = !!(mqReduce && mqReduce.matches) || /[?&]reduce-motion/.test(
 if (mqReduce && mqReduce.addEventListener) mqReduce.addEventListener("change", e => { reduceMotion = e.matches; });
 
 let state, idx, heroT, heroDir, walk, card, parts, won, revealed, timeNow = 0, flash = 0;
+const TIMER_SECS = 8 * 60;                  // countdown from the first Space on the title screen; real time (not frozen by reduced motion)
+let timeLeft = TIMER_SECS, timerOn = false;
 
 function reset() {
   state = S.TITLE; idx = 0; heroT = 0; heroDir = 1; won = {}; revealed = {};
   walk = null; card = null; parts = []; flash = 0;
+  timeLeft = TIMER_SECS; timerOn = false;
 }
 reset();
 
 function earned() {
   const set = new Set();
   for (let i = 0; i < idx; i++) {
-    if (STOPS[i].battle && !won[i]) continue;
+    if ((STOPS[i].battle || STOPS[i].finale) && !won[i]) continue;      // tools arrive when the boss is beaten / the finale drops the hat
     const drops = card && card.i === i && card.phase === 2 && STOPS[i].battle ? dropSchedule(STOPS[i]) : null;
     STOPS[i].tools.forEach(k => {      // while a win is playing out, tools join the toolkit as they land
       const r = drops && drops.find(d => d.tool === k);
@@ -452,7 +468,7 @@ function revealStop(i) {
 function openCard(i) {
   const st = STOPS[i];
   revealed[i] = true;
-  card = { i: i, anim: 0, t: 0, phase: st.battle && !won[i] ? 0 : 2, hits: 0, atk: -1, fade: -1,
+  card = { i: i, anim: 0, t: 0, st: 0, phase: st.battle && !won[i] ? 0 : 2, hits: 0, atk: -1, fade: -1,
            stage: st.script && STOPS[i + 1] && !isMystery(STOPS[i + 1]) ? 1 : 0 };      // stage: scripted cards ask a question (0), then reveal the answer (1)   // phases: 0 intro, 1 fight (3 attacks, then fade), 2 won
   state = S.CARD;
   if (st.tools.length && !st.battle) burst(st.x, st.y - 6, "#f2b705", 14);
@@ -498,7 +514,7 @@ function battleStep() {                       // one press while a boss is alive
   if (card.hits < hitsNeeded() && card.fade < 0) startAttack();
 }
 function advance() {                          // SPACE (or a click): next / attack
-  if (state === S.TITLE) { state = S.MAP; return; }
+  if (state === S.TITLE) { state = S.MAP; timerOn = true; return; }
   if (state === S.MAP) {
     const pi = idx - 1;
     if (pi >= 0 && STOPS[pi].battle && !won[pi]) openCard(pi);     // unfinished boss fight blocks the road
@@ -509,10 +525,21 @@ function advance() {                          // SPACE (or a click): next / atta
   if (state === S.WALK) { walk.t = walk.dur; return; }
   if (state === S.CARD) {
     const st = STOPS[card.i];
+    if (st.finale) {                                                 // castle finale: Space steps through towers -> globe -> steps -> hat + toolkit
+      if (card.stage < 3) { card.stage++; card.st = 0; }
+      else if (card.st >= finaleTimes().done) closeCard();
+      else card.st = finaleTimes().done;                            // skip the rest of the hat / toolkit animation
+      return;
+    }
     if (st.script) { if (card.phase === 2 && card.stage === 1) closeCard(); return; }   // scripted card: Enter acts, Space only continues once the answer is shown
     if (st.battle && card.phase < 2) { battleStep(); return; }       // each Space is one attack; pressing mid-swing finishes it and swings again
     closeCard();
   }
+}
+function finaleTimes() {                      // seconds into the last finale screen
+  if (reduceMotion) return { land: 0, lights: 0, gap: 0, quote: 0, done: 0 };
+  const land = 1.1, lights = land + 0.4, gap = 0.28;
+  return { land, lights, gap, quote: land, done: lights + 7 * gap + 0.2 };
 }
 function goBack() {
   if (state === S.CARD) { card = null; state = S.MAP; return; }
@@ -672,6 +699,12 @@ function drawProp(o) {
 }
 /* ------------------------------------------------- label signs + hint bar -- */
 const HINT_BAR = { x: 218, y: 3, w: 164, h: 29 };
+const TIMER_BOX = { x: 346, y: 5, w: 34, h: 13 };     // sits in the hint bar's empty top-right corner (its text lines end at x=341)
+function drawTimer() {
+  const t = Math.max(0, Math.ceil(timeLeft)), m = Math.floor(t / 60), sec = t % 60, B = TIMER_BOX;
+  rect(B.x - 1, B.y - 1, B.w + 2, B.h + 2, "#1b1426"); rect(B.x, B.y, B.w, B.h, "#2a2140");
+  text(m + ":" + (sec < 10 ? "0" : "") + sec, B.x + B.w / 2, B.y + 3, 1, t === 0 ? "#ff6b6b" : t <= 60 ? "#ffd95e" : "#ffffff", "center");
+}
 function drawHintBar() {                       // controls, kept in a small bar clear of every label
   rect(HINT_BAR.x - 1, HINT_BAR.y - 1, HINT_BAR.w + 2, HINT_BAR.h + 2, "#1b1426"); rect(HINT_BAR.x, HINT_BAR.y, HINT_BAR.w, HINT_BAR.h, "#f4f1e6");
   text("SPACE: NEXT / ATTACK", HINT_BAR.x + 4, HINT_BAR.y + 4, 1, "#1b1426", "left");
@@ -705,7 +738,7 @@ let signSet = null, signKey = "";
 function layoutSigns() {                       // every name sign goes directly below (or beside) its own building, clear of road, hero and art
   const landBox = st => { const L = LAND[st.art]; return { x: st.lx - L.l, y: st.ly - L.h, w: L.l + L.r, h: L.h + 4 }; };
   const items = [{ text: CONFIG.startLabel, box: { x: 4, y: 182, w: 22, h: 22 } }]
-    .concat(STOPS.map(st => ({ text: labelOf(st), box: st.art ? landBox(st) : { x: 296, y: 24, w: 84, h: 74 }, badge: true })));
+    .concat(STOPS.map(st => ({ text: labelOf(st), box: st.art ? landBox(st) : { x: 296, y: 24, w: 84, h: 74 }, badge: true, logo: !!(st.mystery && st.mystery.logo && !isMystery(st)) })));
   const blocks = staticBlocks();
   const treeBlocks = TREES.map(t => [t.x - 7, t.y - 17, 14, 19]).concat(PROPS.map(o => [o.x - 6, o.y - 7, 12, 9]));
   const freeSpots = (it, w, h, eh, maxGap, trees) => {   // candidate rects hugging the building: below first, then beside, then above
@@ -731,7 +764,7 @@ function layoutSigns() {                       // every name sign goes directly 
   };
   const TIERS = [{ gap: 30, trees: true, pen: 0 }, { gap: 30, trees: false, pen: 8 }, { gap: 90, trees: false, pen: 90 }, { gap: 220, trees: false, pen: 250 }];
   const per = items.map(it => {                // ranked candidate lists: hugging the building first, then progressively looser
-    const lines = wrap(it.text, 14), w = Math.max(...lines.map(l => textW(l, 1))) + 8, h = 6 + 8 * lines.length - 1, eh = it.badge ? 11 : 0;
+    const lines = wrap(it.text, 14), w = Math.max(...lines.map(l => textW(l, 1))) + 8 + (it.logo ? 14 : 0), h = 6 + 8 * lines.length - 1, eh = it.badge ? 11 : 0;
     return { lines, badge: it.badge, tiers: TIERS.map(t => ({ pen: t.pen, free: freeSpots(it, w, h, eh, t.gap, t.trees) })) };
   });
   const n = per.length;
@@ -755,7 +788,7 @@ function layoutSigns() {                       // every name sign goes directly 
     for (let i = k; i < arr.length; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; perm(arr, k + 1); [arr[k], arr[i]] = [arr[i], arr[k]]; }
   };
   perm([...Array(n).keys()], 0);
-  return per.map((p, i) => ({ lines: p.lines, r: best.pick[i].r, badge: p.badge }));
+  return per.map((p, i) => ({ lines: p.lines, r: best.pick[i].r, badge: p.badge, logo: items[i].logo ? items[i].logo : false, src: i > 0 && STOPS[i - 1].mystery ? STOPS[i - 1].mystery.logo : null }));
 }
 function ensureSigns() { const key = STOPS.map(labelOf).join("|"); if (key !== signKey) { signSet = layoutSigns(); signKey = key; } }
 function underSign(x, y, w, h) {               // scenery that would poke through a name sign is simply not drawn
@@ -772,7 +805,12 @@ function drawSigns() {                         // dark wooden signs with a light
     rect(x + 1, y + 1, w - 2, h - 2, "#4a3322");                       // dark wood
     rect(x + 1, y + 1, w - 2, 1, "#6b4a2c"); rect(x + 2, y + h - 3, w - 4, 1, "#3a2a1c");
     rect(x + 2, y + 2, 1, 1, "#c4b79a"); rect(x + w - 3, y + 2, 1, 1, "#c4b79a");   // nails
-    sg.lines.forEach((ln, j) => text(ln, cx, y + 3 + j * 8, 1, locked ? "#b9c0cc" : "#ffffff", "center"));
+    const lx = sg.logo ? 7 : 0;                                          // text shifts right to make room for the small logo
+    sg.lines.forEach((ln, j) => text(ln, cx + lx, y + 3 + j * 8, 1, locked ? "#b9c0cc" : "#ffffff", "center"));
+    if (sg.logo) {                                                       // the same image, small and pixelated (16 px wide before cropping, drawn 1 pixel = 1 grid unit)
+      const lc = logoCanvas(sg.src, 16);
+      if (lc) { const ly = y + ((h - lc.height) >> 1); if (!lc.keyed) rect(x + 2, ly - 1, lc.width + 2, lc.height + 2, "#1b1426"); ctx.imageSmoothingEnabled = false; ctx.drawImage(lc, x + 3, ly, lc.width, lc.height); }
+    }
     if (!sg.badge) return;                                               // status tab attached to the sign's top edge
     const st = STOPS[i - 1], status = i - 1 < idx ? "done" : i - 1 === idx ? (state === S.WALK && !walk.back ? "locked" : "next") : "locked";
     const by = y - 10 - (status === "next" ? Math.round(Math.abs(Math.sin(timeNow * 5)) * 2) : 0);
@@ -1278,6 +1316,15 @@ function drawToolkitBar() {              // toolkit bar: seven compact slots; to
     frame(x, gy, sw, sh, 1, hot ? "#ffd95e" : has ? "#ffffff" : "rgba(255,255,255,0.18)");
     iconAt(k, x, gy, sw, sh, has ? null : "rgba(255,255,255,0.16)");
   });
+  const fin = card && STOPS[card.i].finale && card.stage === 3 ? finaleTimes() : null;
+  if (fin) {                                                                        // finale: all seven compartments light up in turn
+    const n = reduceMotion ? TOOL_KEYS.length : Math.min(TOOL_KEYS.length, Math.floor((card.st - fin.lights) / fin.gap) + 1);
+    for (let i = 0; i < n; i++) {
+      const x = gx + i * pitch, fresh = !reduceMotion && i === n - 1 && n < TOOL_KEYS.length;
+      rect(x, gy, sw, sh, "rgba(255,217,94," + (fresh ? 0.55 : 0.28) + ")"); frame(x, gy, sw, sh, 1, "#ffd95e");
+      if (fresh) frame(x - 1, gy - 1, sw + 2, sh + 2, 1, "#ffffff");
+    }
+  }
 }
 
 function promptTag(label, x, y, s) {
@@ -1305,54 +1352,41 @@ function miniClock(x, y, k) {           // a floating clock with moving hands
   rect(x, y, 1, 1, "#d2051e");
 }
 
-function drawDragonBoss(cx, gy) {      // THE CALENDAR DRAGON: planner in its claws, clocks circling it
-  const t = timeNow, bob = Math.round(Math.sin(t * 3) * 2), fl = Math.round(Math.sin(t * 5) * 3);
-  const G = "#2f9e4f", GL = "#47c169", GD = "#1d6f42", K = "#1b1426", BEL = "#f0e2a8", BELD = "#c9b66a";
-  const clocks = [0, 1, 2].map(k => { const a = t * 1.2 + k * 2.09; return { x: Math.round(Math.cos(a) * 52), y: Math.round(-40 + Math.sin(a) * 15 + Math.sin(t * 2 + k) * 2), front: Math.sin(a) > 0, k }; });
+function drawAlarmBoss(cx, gy) {       // THE 6 AM ALARM: a giant angry alarm clock with bell ears, little legs, spinning hands and ringing notes
+  const t = timeNow, K = "#1b1426", RED = "#d2051e", REDL = "#f0505e", REDD = "#8f0a16", GOLD = "#f2b705", GOLDL = "#ffe27a", GOLDD = "#b98a05";
+  const wob = Math.round(Math.sin(t * 7) * 2), bob = Math.round(Math.abs(Math.sin(t * 3.5)) * -2), jig = Math.round(Math.sin(t * 22));   // idle wobble; the ears jitter as it rings
   ctx.save(); ctx.translate(cx, gy);
-  clocks.filter(c => !c.front).forEach(c => miniClock(c.x, c.y, c.k));
-  ctx.translate(0, bob);
-  for (let i = 0; i < 5; i++) {                                    // wing: fanned calendar pages
-    const wx = 4 + i * 9, wy = -50 - i * 3 + ((i * fl) >> 2);
-    rect(wx, wy, 11, 20, K); rect(wx + 1, wy + 1, 9, 18, "#ffffff"); rect(wx + 1, wy + 1, 9, 4, "#d2051e");
-    for (let r = 0; r < 3; r++) rect(wx + 2, wy + 8 + r * 4, 7, 1, "#c4c8d6");
+  for (let k = 0; k < 4; k++) {                                    // little music notes drifting off it (the ringing)
+    const p = (t * 0.55 + k / 4) % 1, side = k % 2 ? 1 : -1, nx = Math.round(side * (30 + (k >> 1) * 8 + Math.sin(p * 6 + k) * 3)), ny = Math.round(-34 - p * 28 - (k >> 1) * 6);
+    ctx.globalAlpha = Math.min(1, (1 - p) * 2.2);
+    rect(nx, ny, 4, 3, K); rect(nx + 3, ny - 8, 1, 9, K); rect(nx + 4, ny - 8, 4, 2, K); rect(nx + 6, ny - 6, 2, 3, K);   // eighth note
+    rect(nx + 1, ny, 2, 1, "#ffffff");
   }
-  let lx = 0, ly = 0;
-  for (let i = 0; i < 15; i++) {                                   // swishing tail
-    lx = 26 + i * 3; ly = -12 - Math.round(Math.sin(i * 0.5 + t * 3) * 3) - (i > 8 ? (i - 8) * 2 : 0);
-    rect(lx, ly, Math.max(3, 10 - (i >> 1)), Math.max(3, 9 - (i >> 1)), i % 2 ? G : GD);
+  ctx.globalAlpha = 1;
+  ctx.translate(wob, bob);
+  for (let s2 = -1; s2 <= 1; s2 += 2) {                            // ringing lines beside the bells
+    for (let r = 0; r < 2; r++) if (Math.sin(t * 14 + r * 1.7) > -0.2) { rect(s2 * (27 + r * 5), -62 + r * 4, 2, 7 - r * 2, GOLDD); rect(s2 * (27 + r * 5) + (s2 > 0 ? 2 : -2), -64 + r * 4, 2, 2, GOLDD); }
   }
-  rect(lx + 1, ly - 5, 8, 3, "#d2051e"); rect(lx + 3, ly - 8, 4, 3, "#d2051e"); rect(lx + 2, ly - 3, 6, 2, "#d2051e");   // tail tip
-  ell(10, -24, 25, 21, GD); ell(10, -25, 24, 20, G); ell(2, -32, 12, 8, GL);                       // body
-  for (let i = 0; i < 4; i++) rect(8 + i * 8, -47 + i, 4, 5, GD);                                  // back spikes
-  ell(8, -20, 15, 15, BELD); ell(8, -20, 14, 14, BEL);                                             // calendar belly
-  for (let y = -33; y <= -7; y++) {
-    const half = Math.round(14 * Math.sqrt(Math.max(0, 1 - Math.pow((y + 20) / 14, 2))));
-    if (y % 4 === 0) rect(8 - half, y, half * 2 + 1, 1, BELD);
-    else for (let x = -12; x <= 12; x += 4) if (Math.abs(x) <= half) rect(8 + x, y, 1, 1, BELD);
+  rect(-14, -9, 6, 9, K); rect(-13, -9, 4, 7, "#4a5568"); rect(-17, -3, 10, 3, K);     // legs and feet
+  rect(8, -9, 6, 9, K); rect(9, -9, 4, 7, "#4a5568"); rect(7, -3, 10, 3, K);
+  for (let s2 = -1; s2 <= 1; s2 += 2) {                            // bell ears
+    const bx = s2 * 16 + jig * s2;
+    ell(bx, -52, 11, 9, K); ell(bx, -53, 10, 8, GOLD); ell(bx - 3 * s2, -56, 5, 3, GOLDL); rect(bx - 10, -52, 20, 4, K); rect(bx - 9, -52, 18, 3, GOLDD); rect(bx - 1, -63, 3, 3, K);
   }
-  rect(-4, -7, 11, 7, GD); rect(-6, -3, 13, 3, G); rect(18, -7, 11, 7, GD); rect(16, -3, 13, 3, G);   // feet
-  for (const fx of [-6, -3, 0, 16, 19, 22]) rect(fx, -1, 2, 2, "#f4f1ea");                          // claws
-  ell(-12, -42, 9, 11, G);                                                                       // neck + head facing the hero
-  ell(-26, -50, 14, 11, G); ell(-28, -54, 8, 5, GL);
-  rect(-48, -52, 24, 10, G); rect(-48, -52, 24, 2, GL); rect(-48, -50, 2, 2, GD);
-  rect(-46, -43, 21, 4, GD);
-  for (let i = 0; i < 4; i++) { rect(-46 + i * 5, -42, 3, 3, "#ffffff"); }
-  rect(-31, -57, 7, 6, "#ffd95e"); rect(-29, -56, 3, 5, K); rect(-33, -60, 11, 2, GD); rect(-34, -59, 4, 2, GD);   // angry eye
-  rect(-22, -67, 3, 10, "#f4f1ea"); rect(-27, -64, 3, 8, "#f4f1ea");
-  for (let k = 0; k < 3; k++) {                                                                  // smoke puffs
-    const p = (t * 0.8 + k / 3) % 1;
-    ell(Math.round(-50 - p * 16), Math.round(-50 - p * 12), 2 + Math.round(p * 2), 2 + Math.round(p * 2), "rgba(225,225,235," + (0.7 * (1 - p)).toFixed(2) + ")");
+  rect(-1, -58, 3, 8, K); ell(0, -62, 3, 3, K); rect(-1, -63, 2, 2, GOLDL);   // the hammer between the ears
+  ell(0, -30, 24, 23, K); ell(0, -30, 23, 22, RED); ell(-7, -42, 11, 7, REDL); ell(0, -25, 20, 14, REDD); ell(0, -30, 21, 20, RED);   // body with a lighter top and darker bottom
+  ell(0, -31, 18, 17, K); ell(0, -31, 17, 16, "#f4f1e6");                                                                            // face
+  for (let h = 0; h < 12; h++) { const a = h * Math.PI / 6; rect(Math.round(Math.cos(a) * 14), -31 + Math.round(Math.sin(a) * 13), 1, 1, h % 3 ? "#9a9684" : K); }
+  const am = t * 5, ah = t * 0.9;                                                                                                    // spinning hands
+  for (let r = 1; r <= 8; r++) rect(Math.round(Math.cos(am) * r), -31 + Math.round(Math.sin(am) * r), 1, 1, RED);
+  for (let r = 1; r <= 5; r++) rect(Math.round(Math.cos(ah) * r), -31 + Math.round(Math.sin(ah) * r), 2, 2, K);
+  rect(-1, -32, 3, 3, K);
+  for (let s2 = -1; s2 <= 1; s2 += 2) {                            // angry eyes with slanted brows
+    rect(s2 * 7 - 3, -39, 6, 6, K); rect(s2 * 7 - 2, -38, 4, 4, "#ffffff"); rect(s2 * 7 - 1 - s2, -37, 2, 3, K); rect(s2 * 7 - 2, -38, 4, 1, REDD);
+    for (let b = 0; b < 8; b++) rect(s2 * (13 - b) - 1, -45 + (b >> 1) - (s2 < 0 ? 0 : 0) + 0, 2, 2, K);
   }
-  rect(-34, -34, 24, 28, K); rect(-33, -33, 22, 26, "#c8102e");                                    // the planner in its claws
-  rect(-11, -33, 1, 26, "#f4f1ea"); rect(-10, -32, 1, 24, "#cfc7b4");
-  for (let i = 0; i < 6; i++) rect(-37, -32 + i * 4, 5, 2, "#cdd3de");
-  for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) rect(-30 + c * 4, -30 + r * 5, 3, 4, (r * 5 + c) % 7 === 3 ? "#ffd95e" : "#f4f1ea");
-  rect(-26, -25, 6, 1, "#d2051e"); rect(-23, -22, 1, 5, "#d2051e"); rect(-19, -15, 5, 1, "#d2051e");
-  rect(-14, -31, 7, 5, GL); rect(-14, -15, 7, 5, GL); rect(-34, -34, 3, 3, GL); rect(-34, -10, 3, 3, GL);   // claws gripping it
-  rect(-8, -28, 10, 6, G);
-  ctx.translate(0, -bob);
-  clocks.filter(c => c.front).forEach(c => miniClock(c.x, c.y + bob, c.k));
+  for (let m = 0; m < 7; m++) rect(-7 + m * 2, -23 + (m % 2) * 2, 2, 2, K);                                                          // jagged mouth
+  rect(-6, -22, 12, 1, "#ffffff");
   ctx.restore();
 }
 
@@ -1440,7 +1474,7 @@ function drawGermBoss(cx, gy) {         // THE GERM: a spiky green germ with a m
   rect(-10, 7, 21, 7, K); for (let i = 0; i < 5; i++) { rect(-9 + i * 4, 7, 2, 3, "#ffffff"); rect(-7 + i * 4, 11, 2, 3, "#ffffff"); }   // jagged teeth
   ctx.restore();
 }
-const BOSS_DRAW = { germ: drawGermBoss, dragon: drawDragonBoss, exam: drawFinalsBoss, tornado: drawTwisterBoss };
+const BOSS_DRAW = { germ: drawGermBoss, alarm: drawAlarmBoss, exam: drawFinalsBoss, tornado: drawTwisterBoss };
 
 function drawSanitizerProp(hx, hy, atk, T, tx, ty, spray) {     // TEMPORARY prop: a hand sanitizer bottle in the hero's hand + its spray
   rect(hx - 5, hy - 14, 11, 17, "#1b1426"); rect(hx - 4, hy - 13, 9, 15, "#e8f2ff");                // bottle
@@ -1452,6 +1486,53 @@ function drawSanitizerProp(hx, hy, atk, T, tx, ty, spray) {     // TEMPORARY pro
     const p = ((atk - 0.1) * 3.2 + k / 16) % 1, jx = Math.sin(k * 12.9) * 4, jy = Math.cos(k * 7.7) * 4;
     rect(nx + (tx - nx) * p + jx * p, ny + (ty - ny) * p + jy * p - Math.sin(p * Math.PI) * 10, k % 3 ? 3 : 2, k % 3 ? 3 : 2, k % 2 ? "#bfe3ff" : "#ffffff");
   }
+}
+/* ---- stop logos: a JPEG is pixelated by drawing it onto a tiny offscreen canvas, its near-white background is made transparent,
+   then it is scaled up with smoothing OFF ---- */
+const LOGO_IMG = {}, LOGO_PX = {};
+function logoCanvas(src, wPx) {          // the logo (white removed, cropped to its shape) as a small offscreen canvas; null until loaded
+  if (!LOGO_IMG[src]) { const im = new Image(); im.src = src; LOGO_IMG[src] = im; }
+  const im = LOGO_IMG[src], key = src + "@" + wPx;
+  if (!im.complete || !im.naturalWidth) return null;
+  if (!LOGO_PX[key]) {
+    const c = document.createElement("canvas"); c.width = wPx; c.height = Math.max(1, Math.round(wPx * im.naturalHeight / im.naturalWidth));
+    const cx = c.getContext("2d", { willReadFrequently: true }); cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";   // averages down to the small pixel grid
+    cx.drawImage(im, 0, 0, c.width, c.height);
+    let out = c;
+    try {
+      const d = cx.getImageData(0, 0, c.width, c.height), px = d.data;
+      const w = c.width, h = c.height, bg = new Uint8Array(w * h), stack = [];
+      const light = q => px[q * 4] > 225 && px[q * 4 + 1] > 225 && px[q * 4 + 2] > 225;        // near-white (a little slack for JPEG noise)
+      const seed = q => { if (!bg[q] && light(q)) { bg[q] = 1; stack.push(q); } };
+      for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
+      for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
+      while (stack.length) {                                                                 // near-white reachable from the edge = background; white inside the logo stays
+        const q = stack.pop(), x = q % w, y = (q / w) | 0;
+        if (x > 0) seed(q - 1); if (x < w - 1) seed(q + 1); if (y > 0) seed(q - w); if (y < h - 1) seed(q + w);
+      }
+      let x0 = w, y0 = h, x1 = -1, y1 = -1;
+      for (let q = 0; q < w * h; q++) {
+        if (bg[q]) { px[q * 4 + 3] = 0; continue; }                                         // background -> transparent
+        px[q * 4 + 3] = 255;                                                                // everything else fully opaque (crisp pixels)
+        const x = q % w, y = (q / w) | 0;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+      cx.putImageData(d, 0, 0);
+      if (x1 >= 0) { out = document.createElement("canvas"); out.width = x1 - x0 + 1; out.height = y1 - y0 + 1; out.getContext("2d").drawImage(c, -x0, -y0); }
+      out.keyed = true;
+    } catch (e) { out.keyed = false; }                                                        // pixels unreadable (image blocked): keep the white background
+    LOGO_PX[key] = out;
+  }
+  return LOGO_PX[key];
+}
+function drawStopLogo(st, cx, cy, silhouette) {   // the logo (grey silhouette of its shape until revealed), or the drawn emblem if the image is missing
+  const src = st.mystery && st.mystery.logo, c = src && logoCanvas(src, 56);
+  if (!c) { if (silhouette) tinted("#707489", () => drawTTEmblem(cx, cy)); else drawTTEmblem(cx, cy); return; }   // fallback: the drawn emblem
+  const k = 1.5, w = c.width * k, h = c.height * k, x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);   // 1.5 grid units = 3 device pixels per logo pixel
+  const put = () => { ctx.imageSmoothingEnabled = false; ctx.drawImage(c, x, y, w, h); };
+  if (!c.keyed) { rect(x - 2, y - 2, w + 4, h + 4, "#1b1426"); if (silhouette) rect(x, y, w, h, "#707489"); else put(); }
+  else if (silhouette) tinted("#707489", put);
+  else put();
 }
 function drawTTEmblem(cx, cy) {        // Texas Tech Double T shield
   const K = "#1b1426", R = "#c8102e";
@@ -1598,7 +1679,7 @@ function sceneDesert(sx, sy, sw, sh) {   // Masked Rider Capital: a desert at du
   }
 }
 
-function sceneCastle(sx, sy, sw, sh) {    // Hilti: sunrise over the castle and its crane
+function castleBackdrop(sx, sy, sw, sh) {   // sunrise, hills and grass (no castle)
   const gy = sy + sh - 30;
   skyGradient(sx, sy, sw, gy - sy, CASTLE_BD.sky[0], CASTLE_BD.sky[1]);
   ell(sx + sw * 0.7, gy - 4, 30, 30, "#fff3b0"); ell(sx + sw * 0.7, gy - 4, 24, 24, "#ffe08a");
@@ -1606,13 +1687,79 @@ function sceneCastle(sx, sy, sw, sh) {    // Hilti: sunrise over the castle and 
   rect(sx, gy, sw, sh - (gy - sy), CASTLE_BD.ground[0]);
   for (let yy = gy; yy < sy + sh; yy += 4) rect(sx, yy, sw, 2, CASTLE_BD.ground[1]);
   rect(sx, gy, sw, 2, "rgba(255,255,255,0.18)");
-  drawCastle(sx + sw * 0.6, gy + 12);
+}
+function sceneCastle(sx, sy, sw, sh) {    // Hilti: sunrise over the castle and its crane
+  castleBackdrop(sx, sy, sw, sh);
+  drawCastle(sx + sw * 0.6, sy + sh - 18);
+}
+
+/* ---- the Hilti finale (card.stage 0 towers, 1 globe, 2 steps, 3 hat + toolkit); all its text is in the stop's `finale` config ---- */
+const LAND_ROWS = [[[0, 35]], [[3, 6], [11, 16], [24, 35]], [[1, 11], [12, 15], [16, 16], [18, 35]], [[1, 11], [17, 35]], [[2, 11], [17, 35]], [[3, 11], [16, 34]],
+  [[5, 9], [16, 34]], [[7, 9], [16, 23], [26, 33]], [[10, 13], [17, 23], [29, 34]], [[10, 14], [18, 23], [29, 34]], [[10, 14], [18, 23], [30, 33]], [[11, 13], [18, 22], [29, 33]],
+  [[11, 12], [19, 21], [29, 33], [35, 35]], [[11, 12], [35, 35]], [[11, 11]], [[0, 35]], [[0, 35]], [[0, 35]]];   // coarse continents, one row per 10 degrees of latitude from 90N, one column per 10 degrees of longitude from 180W
+function landAt(lat, lon) {
+  const r = Math.max(0, Math.min(17, Math.floor((90 - lat) / 10))), c = Math.floor((((lon + 180) % 360) + 360) % 360 / 10);
+  return LAND_ROWS[r].some(q => c >= q[0] && c <= q[1]) ? (r <= 0 || r >= 15 ? 2 : 1) : 0;
+}
+function drawGlobe(cx, cy, r, lon0, places, st) {      // a pixel globe: 2x2 blocks, three shading bands, a pin per place
+  const TILT = 25 * Math.PI / 180, TC = Math.cos(TILT), TS = Math.sin(TILT);
+  const OC = ["#1b4f93", "#2a73c4", "#4b97e3"], LD = ["#2a7a3d", "#43a957", "#7ccd6c"], IC = ["#aeb9cc", "#dbe3f0", "#ffffff"];
+  rect(cx - 3, cy + r + 1, 6, 6, "#5a3f2a"); rect(cx - 15, cy + r + 6, 30, 4, "#7a5a3a"); rect(cx - 15, cy + r + 6, 30, 1, "#a17c52");
+  ell(cx, cy, r + 2, r + 2, "#1b1426");
+  for (let dy = -r; dy < r; dy += 2) for (let dx = -r; dx < r; dx += 2) {
+    const mx = dx + 1, my = dy + 1, d2 = mx * mx + my * my;
+    if (d2 > r * r) continue;
+    const nx = mx / r, ny = -my / r, nz = Math.sqrt(1 - nx * nx - ny * ny);          // ny is up; the globe is tilted 25 degrees toward us
+    const lat = Math.asin(ny * TC + nz * TS) * 180 / Math.PI, lon = lon0 + Math.atan2(nx, nz * TC - ny * TS) * 180 / Math.PI;
+    const light = -nx * 0.45 + ny * 0.55 + nz * 0.7, band = light > 0.62 ? 2 : light > 0.25 ? 1 : 0, k = landAt(lat, lon);
+    rect(cx + dx, cy + dy, 2, 2, (k === 2 ? IC : k ? LD : OC)[band]);
+  }
+  ell(cx - 12, cy - 14, 6, 3, "rgba(255,255,255,0.22)");
+  (places || []).forEach((q, i) => {                                           // pins pop in one by one and ride the globe's turn
+    const la = q.lat * Math.PI / 180, dl = (q.lon - lon0) * Math.PI / 180, z = TS * Math.sin(la) + TC * Math.cos(la) * Math.cos(dl);
+    const born = reduceMotion ? 0 : 0.5 + i * 0.4, u = Math.min(1, Math.max(0, (st - born) / 0.35));
+    if (z < 0.08 || u <= 0) return;
+    const px = Math.round(cx + Math.cos(la) * Math.sin(dl) * r), py = Math.round(cy - (TC * Math.sin(la) - TS * Math.cos(la) * Math.cos(dl)) * r) - Math.round((1 - u) * 14);
+    rect(px, py - 6, 1, 6, "#1b1426"); rect(px - 2, py - 10, 5, 5, "#1b1426"); rect(px - 1, py - 9, 3, 3, "#ff3348"); rect(px - 1, py - 9, 1, 1, "#ffd0d6");
+  });
+}
+function sceneFinale(st, sx, sy, sw, sh) {
+  const F = st.finale, c = card, t = c.st, y0 = sy + sh - 22;
+  if (c.stage === 3) { sceneCastle(sx, sy, sw, sh); return; }
+  castleBackdrop(sx, sy, sw, sh);
+  if (c.stage === 0) {                                                       // four value towers light up one after another
+    F.values.forEach((name, i) => {
+      const bx = sx + 176 + i * 46, h = [44, 56, 56, 44][i], lit = reduceMotion || t >= 0.5 + i * 0.7, top = y0 - h;
+      if (lit) ell(bx + 15, top + 12, 30, 28, "rgba(255,217,94,0.20)");
+      rect(bx - 1, top - 1, 32, h + 1, "#1b1426"); rect(bx, top, 30, h, lit ? "#d4d0bd" : "#7d8196");
+      for (let yy = top + 6; yy < y0; yy += 7) rect(bx, yy, 30, 1, lit ? "#b3ae98" : "#646880");
+      for (let k = 0; k < 3; k++) rect(bx + k * 12, top - 5, 6, 5, lit ? "#d4d0bd" : "#7d8196");
+      for (let k = 0; k < 14; k++) { const wd = 4 + Math.round(k * 2.3); rect(bx + 15 - (wd >> 1), top - 19 + k, wd, 1, k % 4 ? "#d2051e" : "#a50418"); }
+      rect(bx + 15, top - 29, 1, 10, "#8e8e8e"); rect(bx + 16, top - 29, 8, 5, lit ? "#ffd95e" : "#9a9684");
+      rect(bx + 11, top + 10, 8, 14, "#1b1426"); rect(bx + 12, top + 11, 6, 12, lit ? "#ffe27a" : "#1d2438");
+      if (lit) rect(bx + 13, top + 12, 2, 4, "#fff6c8");
+      rect(bx + 10, y0 - 14, 10, 14, "#3a2a1c");
+      if (!lit && !reduceMotion) text("?", bx + 15, top + 30, 1, "#ffffff", "center", "#1b1426");
+    });
+  } else if (c.stage === 1) {                                                // globe with a pin for every place
+    drawGlobe(sx + sw - 92, sy + 48, 34, reduceMotion ? -45 : -45 + t * 12, F.places, t);
+  } else {                                                                   // three steps rising up the castle hill
+    ell(sx + sw - 70, y0 + 10, 150, 28, "#79c966"); rect(sx, y0 + 4, sw, sh, CASTLE_BD.ground[0]);
+    drawCastle(sx + sw - 38, y0 + 6);
+    for (let i = 0; i < 3; i++) {
+      const x = sx + 172 + i * 34, full = 14 * (i + 1), u = reduceMotion ? 1 : Math.min(1, Math.max(0, (t - 0.3 - i * 0.6) / 0.4)), hh = Math.round(full * u);
+      if (hh <= 0) continue;
+      rect(x - 1, y0 - hh - 1, 36, hh + 2, "#1b1426"); rect(x, y0 - hh, 34, hh, "#b9bcc9"); rect(x, y0 - hh, 34, 3, "#d4d7e2"); rect(x, y0 - 2, 34, 2, "#8e93a5");
+      for (let yy = y0 - hh + 7; yy < y0; yy += 7) rect(x, yy, 34, 1, "#9a9fb2");
+      if (u >= 1) { ell(x + 17, y0 - hh - 7, 6, 6, "#1b1426"); ell(x + 17, y0 - hh - 7, 5, 5, "#f2b705"); text(String(i + 1), x + 17, y0 - hh - 10, 1, "#1b1426", "center"); }
+    }
+  }
 }
 
 const SCENES = { school: sceneHallway, campus: sceneGolf, hall: sceneBooth, office: sceneDesert, castle: sceneCastle };
 function drawScene(st, sx, sy, sw, sh) {   // the stop's own backdrop, dimmed so the sprites stand out
   ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
-  SCENES[st.art || "castle"](sx, sy, sw, sh);
+  if (st.finale) sceneFinale(st, sx, sy, sw, sh); else SCENES[st.art || "castle"](sx, sy, sw, sh);
   rect(sx, sy, sw, sh, "rgba(10,8,18,0.36)");
   ctx.restore();
 }
@@ -1673,7 +1820,7 @@ function drawCard() {
   const bt = st.battle, ph = bt ? c.phase : 2, gy = sy + sh - 16;
   let powerFx = null;                                        // drawn after the scene clip so it can start up in the toolkit bar
   if (bt && ph < 2) {                                        // the boss, large on the right, with its health bar above it
-    const T = atkTimes(), cx = sx + sw - 84, draw = BOSS_DRAW[bt.sprite] || drawDragonBoss, atk = c.atk, fading = c.fade >= 0;
+    const T = atkTimes(), cx = sx + sw - 84, draw = BOSS_DRAW[bt.sprite] || drawAlarmBoss, atk = c.atk, fading = c.fade >= 0;
     const alpha = fading ? Math.max(0, 1 - c.fade / T.fade) : 1;                      // the defeated boss fades out
     const hitOn = atk >= T.hit && atk < T.hit + 0.25;                                 // one steady white tint (no strobing) as the blow lands
     const shake = hitOn && !reduceMotion ? Math.round(Math.sin(atk * 70) * 4) : 0;
@@ -1717,17 +1864,18 @@ function drawCard() {
     const sch = bt ? dropSchedule(st) : null;
     const nx = !bt || st.script ? STOPS[card.i + 1] : null;
     if (nx && nx.mystery) {                                  // teaser for the next, still-hidden stop
-      const ex = sx + sw - 84, ey = gy - 40 + Math.round(Math.sin(timeNow * 3) * 2);
+      const ex = sx + sw - 84, ey = gy - 24 + (reduceMotion ? 0 : Math.round(Math.sin(timeNow * 3) * 2));
       if (isMystery(nx)) {
-        tinted("#707489", () => drawTTEmblem(ex, ey));
-        text("?", ex, ey - 16, 4, "#ffffff", "center", "#1b1426");
+        drawStopLogo(nx, ex, ey, true);
+        text("?", ex, ey - 10, 5, "#ffffff", "center", "#1b1426");
       } else {
-        drawTTEmblem(ex, ey);
-        lightLabel(nx.mystery.label, ex, sy + 3, 1.5, "center");
+        drawStopLogo(nx, ex, ey, false);
+        lightLabel(nx.mystery.label, ex, sy + 1, 1.5, "center");
       }
     }
-    drawParty(sx + 28, gy, !!bt && !st.script, null, 0, st.party === "beside");
-    if (!bt) { const n = st.tools.length; st.tools.forEach((k, i) => toolTile(k, sx + sw - 12 - (n - i) * 28 + 4, sy + 52)); }
+    const hatDrop = st.finale && c.stage === 3 && !won[card.i] ? [{ tool: "hat", p: Math.min(0.999, Math.max(0.001, c.st / finaleTimes().land)) }] : null;   // the hard hat falls onto her head
+    drawParty(sx + 28, gy, !!bt && !st.script, hatDrop, 0, st.party === "beside");
+    if (!bt && !st.finale) { const n = st.tools.length; st.tools.forEach((k, i) => toolTile(k, sx + sw - 12 - (n - i) * 28 + 4, sy + 52)); }
     if (bt && !st.script) {
       lightLabel(CONFIG.ui.victory, sx + sw / 2 + 24, sy + 3, 2, "center", "#b01428");
       if (st.team && c.t >= sch[sch.length - 1].at + toolDone()) lightLabel(st.team + " " + CONFIG.ui.joined, sx + sw - 8, sy + 28, 1.5, "right");
@@ -1761,15 +1909,41 @@ function drawCard() {
       else if (gone) spr(SPR_CHECK, sp.cx - 3, sp.cy - 3, 1, false, "#1d8f4a");
     });
     wrap(line, 35).slice(0, 2).forEach((l, j) => text(l, x + 10, ty + 33 + j * 11, 1.5, ink, "left"));
+  } else if (st.finale) {                                    // the Hilti finale: each screen has its own text, all from the config
+    const F = st.finale, FT = finaleTimes(), put = (l, yy, col) => text(l, x + 10, ty + yy, 1.5, col || ink, "left");
+    if (c.stage === 0) {
+      wrap(st.line, 35).forEach((l, j) => put(l, 5 + j * 13));
+      F.values.forEach((v, i) => { if (reduceMotion || c.st >= 0.5 + i * 0.7) text(v, x + 10 + (i % 2) * 150, ty + 24 + (i >> 1) * 14, 1.5, "#8a5a00", "left"); });   // each value appears as its tower lights
+    }
+    else if (c.stage === 1) F.globe.split("\n").forEach((l, j) => put(l, 6 + j * 13));
+    else {
+      if (c.stage === 2) {                                   // three steps, numbered like the ones in the scene (smaller text so all fit)
+        let yy = 6;
+        F.steps.forEach((l, j) => {
+          rect(x + 10, ty + yy - 1, 9, 9, ink); text(String(j + 1), x + 14.5, ty + yy + 1, 1, "#ffffff", "center");
+          wrap(l, 50).forEach((r, k) => { text(r, x + 24, ty + yy, 1, ink, "left"); yy += 9; });
+          yy += 3;
+        });
+      } else {
+        if (c.st >= FT.quote) put(F.quote, 8);
+        if (c.st >= FT.done) put(F.done, 28, "#1d6f42");
+      }
+    }
   } else {
-    let rows = st.lines.flatMap(l => wrap(l, 35)), accent = -1;      // each configured line gets its own row
+    let rows = st.lines.flatMap(l => /^\s*- /.test(l) ? [l] : wrap(l, 35)), accent = -1;      // each configured line gets its own row ("- " = bullet, "  - " = indented sub-bullet)
     if (st.script) {                                         // the scripted card shows its prompt in the last row
       const nxs = STOPS[card.i + 1];
       if (c.phase === 0) { rows = rows.concat(CONFIG.ui.sanitize); accent = rows.length - 1; }
       else if (c.stage === 0) { rows = [CONFIG.ui.ask, CONFIG.ui.reveal]; accent = 1; }
       else rows = [(nxs && nxs.mystery ? nxs.mystery.label : "NEXT") + "."];
     }
-    rows.slice(0, 4).forEach((l, j) => text(l, x + 10, ty + 6 + j * 13, 1.5, j === accent ? "#b01428" : ink, "left"));
+    const list = rows.length > 4;                                                          // a five-row list is packed a little closer
+    rows.slice(0, 5).forEach((l, j) => {
+      const b = /^\s*- (.*)$/.exec(l), by = ty + (list ? 3 : 6) + j * (list ? 11 : 13);
+      if (!b) { text(l, x + 10, by, 1.5, j === accent ? "#b01428" : ink, "left"); return; }
+      rect(x + 10, by + 2, 5, 5, ink);                                                      // every bullet is the same size and indent
+      text(b[1], x + 21, by, 1.5, ink, "left");
+    });
   }
   dotsRow(x + w / 2, ty + th - 6, card.i, STOPS.length);
   {                                                          // "press space" tab on the text box edge
@@ -1921,6 +2095,7 @@ function drawParticles() {
 let last = performance.now();
 function tick(now) {
   let dt = (now - last) / 1000; last = now;
+  const realDt = Math.max(0, dt);            // the countdown uses real time, even if the tab was throttled
   if (dt > 0.1) dt = 0.1;
   if (dt < 0) dt = 0;
   if (!reduceMotion) timeNow += dt;          // frozen clock = no idle animation
@@ -1943,6 +2118,13 @@ function tick(now) {
   }
   if (card) card.anim += dt;
   if (card) {
+    card.st += dt;
+    const fs = STOPS[card.i];
+    if (fs.finale && card.stage === 3 && !won[card.i] && card.st >= finaleTimes().land) {      // the hard hat lands on her head
+      won[card.i] = true; flash = 0.3; burst(70, 56, "#ffd95e", 18); burst(70, 56, "#ffffff", 10);
+    }
+  }
+  if (card) {
     card.t += dt;
     if (card.phase === 1) {
       const T = atkTimes();
@@ -1962,6 +2144,7 @@ function tick(now) {
     }
   }
   if (flash > 0) flash -= dt;
+  if (timerOn && state !== S.TITLE && state !== S.END) timeLeft = Math.max(0, timeLeft - realDt);
 
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
@@ -1973,6 +2156,7 @@ function tick(now) {
   else if (state === S.END) drawEnd();
   else { drawMapScene(); if (state === S.CARD) { drawCard(); drawParticles(); } }
 
+  if (state !== S.TITLE) drawTimer();
   if (flash > 0 && !reduceMotion) {
     ctx.fillStyle = "rgba(255,255,255," + Math.min(0.5, flash * 1.6).toFixed(3) + ")";
     ctx.fillRect(0, 0, W, H);
