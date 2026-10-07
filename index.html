@@ -93,18 +93,23 @@ const CONFIG = {
         build: {                                                         // the build sequence: one Space starts it, then the four towers go up on their own
           gap: 1,                                                        // seconds of dark between towers
           towers: [                                                      // caption (under about 12 words) and how long each tower takes, in seconds
-            { name: "Teamwork",   secs: 15, caption: "Teamwork: we build it together." },
-            { name: "Commitment", secs: 15, caption: "Commitment: Accountability, to keep everyone's commitments" },
-            { name: "Integrity",  secs: 15, caption: "Integrity: Own it, Fix it" },
-            { name: "Courage",    secs: 15, caption: "Courage: To build differently" }
+            { name: "Teamwork",   secs: 11, caption: "Teamwork: we build it together." },
+            { name: "Commitment", secs: 18, caption: "Commitment: Keeping everyone accountable" },
+            { name: "Integrity",  secs: 11, caption: "Integrity: Own it, Fix it" },
+            { name: "Courage",    secs: 16, caption: "Courage: To build differently" }
           ],
           done: "Press Space to continue."                               // shown only once the hat has landed and the toolkit has lit
+        },
+        why: {                                                           // three short cards after the build, one Space each: Why Hilti -> Still to unlock -> What I expect
+          title: "Why Hilti", text: "Community impact is part of how Hilti works.",
+          unlockTitle: "Still to unlock", locks: ["Product knowledge", "Field sales", "Business Chinese and German"],      // the third lock carries the China and Germany flags
+          expectTitle: "What I expect", expect: "Real accounts. Real mentors. Real range."
         },
         globe: "A multicultural home.\nStudy abroad.\nGlobal is normal.",
         cities: [                                                        // the globe visits these in order, one Space each
           { name: "LONDON",   lat: 51.5, lon: -0.13, label: "London: studied abroad", photo: "hilti_london.jpeg" },
           { name: "SHANGHAI", lat: 31.2, lon: 121.5, label: "Shanghai: my mom's home", photo: "hilti_shanghai.jpeg" },
-          { name: "MUNICH",   lat: 48.1, lon: 11.6,  label: "Munich: my partner's home", photo: "hilti_munich.jpeg" }
+          { name: "MUNICH",   lat: 48.1, lon: 11.6,  label: "Munich: my partner's home. Hilti builds there too.", photo: "hilti_munich.jpeg" }
         ],
         zoomIn: "PRESS ENTER TO ZOOM IN.", cont: "PRESS ENTER TO CONTINUE.",
         steps: ["Now: Outperformer Program",
@@ -661,9 +666,14 @@ function advance() {                          // SPACE (or a click): next / atta
     if (st.battle && card.phase === 2 && bl.length && (card.bt ? card.bt.length : 0) < bl.length) { (card.bt = card.bt || []).push(card.t); return; }      // each Space after the tools starts the next beat
     if (st.finale) {                                                 // castle finale: Space steps through the build -> globe -> steps -> quote -> dark finale
       const g = card.g;
-      if (card.stage === 0) {                                        // the build sequence: Space starts it, then skips to the end of the current tower; after it, Space moves on
+      if (card.stage === 0) {                                        // the build sequence: Space starts it and does nothing while it runs (F skips a tower, P pauses); once it has finished, Space moves on
         if (!card.bd) { card.bd = { t: 0, paused: false, done: false, lights: 0 }; return; }
-        if (!card.bd.done) { buildSkip(card, st.finale); return; }
+        if (!card.bd.done) return;
+        const w = card.why || 0;                                     // after the build: three short cards (why / still to unlock / what I expect), one Space each
+        if (w < 3) {
+          if (w === 2 && (card.lk || 0) < 3) { card.lk = (card.lk || 0) + 1; (card.lkT = card.lkT || [])[card.lk - 1] = card.t; return; }      // each Space on "Still to unlock" opens the next lock
+          card.why = w + 1; card.wt = card.t; return;
+        }
         card.stage++; card.st = 0; return;
       }
       if (card.stage === 1) {                                        // the globe: Enter zooms in/out; Space visits the next city, then moves on once back at the castle
@@ -723,7 +733,7 @@ function reopen() {
 /* ---- presenter shortcuts (not shown on screen): F = skip ahead one step, B = back one step ----
    Every key step (Space, Enter, Tab) first saves a snapshot; B restores the last one, showing that screen fully played out. */
 const snap = () => structuredClone({ state, idx, heroT, heroDir, walk, card, won, revealed, intro, introDone, meet });
-const sigOf = o => JSON.stringify([o.state, o.idx, o.walk && o.walk.target, o.card && [o.card.i, o.card.phase, o.card.stage, o.card.hits, o.card.g && [o.card.g.mode, o.card.g.placed, o.card.g.z >= 1, o.card.g.zd]], o.won, o.revealed, o.introDone, o.meet && o.meet.slide]);
+const sigOf = o => JSON.stringify([o.state, o.idx, o.walk && o.walk.target, o.card && [o.card.i, o.card.phase, o.card.stage, o.card.why, o.card.lk, o.card.hits, o.card.bd ? (o.card.bd.done ? 2 : 1) : 0, o.card.g && [o.card.g.mode, o.card.g.placed, o.card.g.z >= 1, o.card.g.zd]], o.won, o.revealed, o.introDone, o.meet && o.meet.slide]);
 function act(fn) {                                  // run a key step; remember the screen it started from if it changed anything
   const before = snap(), s0 = sigOf(before);
   fn();
@@ -737,8 +747,9 @@ function forceTextDone() {                          // finish this screen's typi
   const st = STOPS[card.i];
   if (st.finale && card.stage !== 1) card.st = Math.max(card.st, 999);
 }
-function cardForward() {                            // what Tab does on a card once its text is done: the one action that moves it along
+function cardForward() {                            // what F does on a card once its text is done: the one action that moves it along
   const st = STOPS[card.i];
+  if (st.finale && card.stage === 0 && card.bd && !card.bd.done) { buildSkip(card, st.finale); return; }      // during the build, F skips to the end of the current tower
   if (st.finale) {
     const g = card.g, n = st.finale.cities.length;
     if (card.stage === 1) {
@@ -1538,7 +1549,7 @@ const FRIENDS = {                                   // friends who stand with th
   mrcGirl:    { friend: true, hair: "#5a3a22", hairL: "#7a5232", hairD: "#38220f", skin: "#f9e0cc", skinD: "#e8c4a6", cut: "long",
                 top: "#d2051e", topL: "#f0505e", topD: "#9a0a16", collar: "#ffffff", bottom: "#2b2b3a", bottomL: "#40405a", shoe: "#ffffff", h: 32 },        // white girl, long brown hair, red top
   mrcTall:    { friend: true, hair: "#6b4a2c", hairL: "#8a6a44", hairD: "#43301a", skin: "#f8dcc4", skinD: "#e6c0a0", cut: "short", tall: 8,
-                top: "#bcd6f2", topL: "#d8e8fa", topD: "#8fb4dc", collar: "#ffffff", bottom: "#33384a", bottomL: "#4a5068", shoe: "#2b2230", h: 40 }         // very tall white man, brown hair, light blue shirt
+                top: "#3f8f5a", topL: "#5fb27a", topD: "#2a6a40", collar: "#e8f2e4", bottom: "#33384a", bottomL: "#4a5068", shoe: "#2b2230", h: 40 }         // very tall white man, brown hair, green shirt (Rankin has a blue shirt and khakis)
 };
 function drawFriendHi(ox, oy, s, m, k) {            // a 20-wide hi-px friend (32 tall, or 40 for the tall one), standing, facing right
   const I = idleBob(k + 1, false, 0), ex = m.tall || 0;
@@ -2272,10 +2283,10 @@ const ez = p => p * p * (3 - 2 * p), cl = (v, a, b) => Math.max(a === undefined 
 function bdChar(id, cx, feet, o) {                    // a large character standing on `feet`, centred on cx
   o = o || {};
   ell(cx, feet + 1, 24, 3, "rgba(0,0,0,0.3)");
-  if (id === "hero") { drawHeroHi(cx - 24, feet - 80, 4, true, !!o.walk, o.walk ? timeNow : 0, earned(), {}); return; }
-  const m = id === "athean" ? FRIENDS.boothDark : id === "rankin" ? FRIENDS.boothLight : id === "trey" ? FRIENDS.mrcTall : id === "kylee" ? MATE_STYLES[0] : MATE_STYLES[1];
+  if (id === "hero") { drawHeroHi(cx - 24, feet - 80, 4, !o.left, !!o.walk, o.walk ? timeNow : 0, earned(), { club: true, shield: true }); return; }      // her hands are free for bricks and tools
+  const m = id === "athean" ? FRIENDS.boothDark : id === "rankin" ? FRIENDS.boothLight : id === "trey" ? { ...FRIENDS.mrcTall, tall: 24, h: 56 } : id === "kylee" ? MATE_STYLES[0] : MATE_STYLES[1];
   const h = (m.h || 32) * 2, kk = id.length;
-  const draw = oy => { if (m.friend) drawFriendHi(cx - 20, oy, 4, m, kk); else drawMateHi(cx - 20, oy, 4, true, !!o.walk, o.walk ? timeNow : 0, m, kk); };
+  const draw = oy => { if (m.friend) drawFriendHi(cx - 20, oy, 4, m, kk); else drawMateHi(cx - 20, oy, 4, !o.left, !!o.walk, o.walk ? timeNow : 0, m, kk); };
   if (o.sit) {                                         // sitting down: lowered body, legs stretched out in front, a sweat drop
     ctx.save(); ctx.beginPath(); ctx.rect(cx - 40, feet - 100, 110, 100 - 6); ctx.clip();
     draw(feet - h + 22);
@@ -2333,7 +2344,7 @@ function bdTeamwork(p) {                               // 1. Teamwork: a line of
   bdTowerTop(full >= N, N, rh, x0, 56);
   [2, 1, 0].forEach(sl => { const id = ORD[ph][sl]; bdChar(id, pos(id), GY, {}); });
   if (full < N && p < 0.995) {                          // the brick in flight: back -> middle -> front -> the tower
-    const hx = i => pos(ORD[ph][i]) + 24, hy = GY - 40, ty = GY - (k + 1) * rh + 4;
+    const hx = i => pos(ORD[ph][i]) + 14, hy = GY - 25, ty = GY - (k + 1) * rh + 4;
     let bx, by;
     if (u < 0.33) { const f = u / 0.33; bx = lp(hx(2), hx(1), f); by = hy - Math.sin(f * Math.PI) * 10; }
     else if (u < 0.66) { const f = (u - 0.33) / 0.33; bx = lp(hx(1), hx(0), f); by = hy - Math.sin(f * Math.PI) * 10; }
@@ -2344,81 +2355,151 @@ function bdTeamwork(p) {                               // 1. Teamwork: a line of
   if (!reduceMotion && full !== (bdGlobal.rows1 || 0)) { bdGlobal.rows1 = full; if (full > 0) bdTick("tick"); }
 }
 const bdGlobal = {};
-function bdCommit(p, bd) {                             // 2. Commitment: four agreed rows; one stalls, the hero helps without scolding
-  const N = 4, rh = 24, TX = BD.TX, GY = BD.GY, x0 = TX - 28, fin = (a, b) => cl((p - a) / (b - a));
-  const r1 = fin(0.12, 0.24), r2 = fin(0.28, 0.40), r3a = fin(0.44, 0.50) * 0.4, r3b = fin(0.68, 0.80), r4 = fin(0.84, 0.94);
-  const r3 = p < 0.68 ? r3a : 0.4 + 0.6 * r3b;
-  const rows = [r1, r2, r3, r4];
-  for (let r = 0; r < N; r++) {                         // the four agreed rows as ghost outlines, filled in as they are laid
+const BD_COMMIT = { N: 7, rh: 16, half: 4 };            // the brick tower: 7 rows of 16, four of them already up the next morning
+function bdDawn(f) {                                    // the sky: 0 = deep night with a tiny sunrise on the horizon, 1 = the normal orange morning
+  castleBackdrop(0, 26, W, H - 26);
+  if (f >= 1) return;
+  const a = (1 - f) * 0.92, GY = BD.GY;
+  ctx.fillStyle = "rgba(8,12,38," + a.toFixed(3) + ")"; ctx.fillRect(0, 26, W, H - 26);
+  for (let i = 0; i < 26; i++) {                         // a few stars fading as it gets light
+    const sx0 = 8 + ((i * 97) % (W - 16)), sy0 = 32 + ((i * 53) % 90), tw = reduceMotion ? 1 : 0.4 + 0.6 * Math.max(0, Math.sin(timeNow * 1.6 + i * 2.1));
+    ctx.globalAlpha = (1 - f) * tw * 0.9; rect(sx0, sy0, 1, 1, "#fff6c8"); ctx.globalAlpha = 1;
+  }
+  const g = 0.25 * (1 - f); ell(322, GY - 2, 34, 12, "rgba(255,120,50," + g.toFixed(3) + ")"); ell(322, GY - 2, 20, 7, "rgba(255,170,70," + (g * 1.4).toFixed(3) + ")");
+  for (let dy = 1; dy <= 6; dy++) { const w = Math.round(Math.sqrt(36 - dy * dy)); ctx.globalAlpha = 1 - f; rect(322 - w, GY - dy, w * 2, 1, dy > 4 ? "#ffd27a" : "#ff9a3a"); ctx.globalAlpha = 1; }   // the tiny sun peeking over the horizon
+}
+function bdHouse(cx, lit, open) {                       // Libby's small house, seen from the front, door in the middle
+  const GY = BD.GY, x0 = cx - 24;
+  rect(x0 - 1, GY - 36, 50, 36, "#1b1426"); rect(x0, GY - 35, 48, 35, "#e3d0a3"); rect(x0, GY - 35, 4, 35, "#f2e4bf"); rect(x0 + 44, GY - 35, 4, 35, "#bda676");
+  for (let r = 0; r < 18; r++) { rect(x0 - 6 + Math.round(r * 0.3), GY - 37 - r, 60 - Math.round(r * 0.6), 1, r % 3 === 2 ? "#6a2a22" : "#8e3a2e"); }
+  rect(x0 + 34, GY - 54, 7, 12, "#6a2a22");                                                        // chimney
+  rect(cx - 6, GY - 22, 13, 22, "#1b1426"); rect(cx - 5, GY - 21, 11, 21, open ? "#3a2414" : "#7a5230"); if (!open) rect(cx + 3, GY - 11, 2, 2, "#f2b705");
+  rect(x0 + 4, GY - 30, 11, 11, "#1b1426"); rect(x0 + 5, GY - 29, 9, 9, lit ? "#ffe27a" : "#1d2438"); rect(x0 + 9, GY - 29, 1, 9, "#1b1426"); rect(x0 + 5, GY - 25, 9, 1, "#1b1426");
+  if (lit) ell(x0 + 9, GY - 25, 14, 12, "rgba(255,226,122,0.28)");
+  if (open) { rect(cx - 5, GY - 21, 11, 21, "#ffd98a"); rect(cx - 5, GY - 21, 11, 2, "#ffe9b8"); }  // warm light spilling from the open door
+}
+function bdCup(x, y) { rect(x - 3, y - 1, 7, 8, "#1b1426"); rect(x - 2, y, 5, 6, "#ffffff"); rect(x - 2, y, 5, 2, "#6a3a1c"); rect(x - 3, y + 2, 1, 3, "#f2f2f2"); }
+function bdThumb(x, y, s) {                              // a pixel thumbs-up
+  const sk = "#f2c396", sd = "#c8905e", k = "#1b1426";
+  rect(x + 2 * s, y, 3 * s, 5 * s, k); rect(x + 2 * s + 1, y + 1, 3 * s - 2, 5 * s - 1, sk);
+  rect(x, y + 4 * s, 8 * s, 6 * s, k); rect(x + 1, y + 4 * s + 1, 8 * s - 2, 6 * s - 2, sk);
+  for (let i = 0; i < 3; i++) rect(x + 2, y + 6 * s + i * 2 * s - 1, 8 * s - 4, 1, sd);
+  rect(x - 3 * s, y + 4 * s, 3 * s, 6 * s, "#2f6fd0");
+}
+function bdPhone(p) {                                     // the group chat: a message from the hero, then two thumbs-up replies
+  const fin = (a, b) => cl((p - a) / (b - a)), hand = { x: 198, y: BD.GY - 28 };
+  const zin = ez(fin(0.06, 0.15)), zout = ez(fin(0.28, 0.34)), zk = zin * (1 - zout), sc = lp(0.13, 0.92, zk), cxp = lp(hand.x, 192, zk), cyp = lp(hand.y, 130, zk);
+  const alpha = 1 - ez(fin(0.31, 0.34));
+  if (alpha <= 0) return;
+  if (zk > 0) { ctx.fillStyle = "rgba(6,4,12," + (0.86 * zk * alpha).toFixed(3) + ")"; ctx.fillRect(0, 26, W, H - 26); }       // the world dims while we look at the phone
+  ctx.save(); ctx.translate(cxp, cyp); ctx.scale(sc, sc); ctx.globalAlpha = alpha;
+  rect(-48, -82, 96, 164, "#1b1426"); rect(-46, -80, 92, 160, "#3a3d4e"); rect(-42, -74, 84, 148, "#e8f0f8");
+  rect(-42, -74, 84, 17, "#2f6fd0"); rect(-42, -58, 84, 1, "#1d4f96");
+  ell(-33, -66, 5, 5, "#ffffff"); ell(-33, -66, 4, 4, "#f2b705"); ell(-22, -66, 5, 5, "#ffffff"); ell(-22, -66, 4, 4, "#d2051e"); ell(-11, -66, 5, 5, "#ffffff"); ell(-11, -66, 4, 4, "#8a4fc9");
+  text("Crew", 4, -69, 1, "#ffffff", "left");
+  const pop = (a) => { const f = fin(a, a + 0.035); return f <= 0 ? 0 : f < 1 ? 1.1 * ez(f) : 1; };
+  const m1 = pop(0.17), r1 = pop(0.21), r2 = pop(0.25);
+  const bubble = (f, x, y, w, h, col, draw) => { if (f <= 0) return; ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(f, f); ctx.translate(-w / 2, -h / 2); rect(-1, -1, w + 2, h + 2, "#1b1426"); rect(0, 0, w, h, col); draw(); ctx.restore(); };
+  text("Chelsea", 40, -52, 1, "#5a5f70", "right");
+  bubble(m1, -8, -45, 46, 24, "#4f8fe8", () => { text("see you", 23, 4, 1, "#ffffff", "center"); text("guys at 6!", 23, 12, 1, "#ffffff", "center"); });
+  text("Kylee", -38, -15, 1, "#5a5f70", "left");
+  bubble(r1, -38, -8, 34, 22, "#ffffff", () => { bdThumb(12, 5, 1.4); });
+  text("Libby", -38, 19, 1, "#5a5f70", "left");
+  bubble(r2, -38, 26, 34, 22, "#ffffff", () => { bdThumb(12, 5, 1.4); });
+  rect(-38, 58, 76, 11, "#ffffff"); frame(-38, 58, 76, 11, 1, "#bcc6d8"); text("Message", -34, 61, 1, "#9aa0b0", "left");
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+function bdCommit(p, bd) {                               // 2. Commitment: a group chat, the next morning, coffee at Libby's door, and the three lay a row each
+  const GY = BD.GY, TX = BD.TX, N = BD_COMMIT.N, rh = BD_COMMIT.rh, half = BD_COMMIT.half, x0 = TX - 28, fin = (a, b) => cl((p - a) / (b - a));
+  const f = ez(fin(0.7, 0.88));                           // the sky shifts from dark to orange while all three walk to the tower
+  bdDawn(f);
+  const houseX = 56;
+  // where everyone is
+  const walkOut = ez(fin(0.44, 0.53)), walkBack = ez(fin(0.7, 0.8)), heroFace = p < 0.7 && p >= 0.44 ? "left" : "right";
+  const heroX = p < 0.44 ? 182 : p < 0.7 ? lp(182, 118, walkOut) : lp(118, 178, walkBack);
+  const libStep = ez(fin(0.66, 0.74)), libWalk = ez(fin(0.7, 0.8)), libShown = p >= 0.66;
+  const libbyX = p < 0.7 ? lp(houseX + 4, houseX + 26, libStep) : lp(houseX + 26, 130, libWalk);
+  const kyleeX = 226;
+  const lit = p >= 0.6;
+  bdHouse(houseX, lit, p >= 0.64 && p < 0.7);
+  // the tower: four rows up, then one row each from the three of them
+  const lay = [[0.8, 0.86, "hero", 0], [0.86, 0.91, "libby", 1], [0.91, 0.96, "kylee", 2]];
+  const rowsDone = half + lay.filter(l => p >= l[1]).length;
+  const cur = lay.find(l => p >= l[0] && p < l[1]);
+  bdBrickTower(rowsDone, cur ? fin(cur[0] + (cur[1] - cur[0]) * 0.55, cur[1]) : 0, N, rh, x0, 56);
+  bdTowerTop(rowsDone >= N, N, rh, x0, 56);
+  const handOf = id => id === "hero" ? { x: heroX + 16, y: GY - 25 } : id === "libby" ? { x: libbyX + 14, y: GY - 22 } : { x: kyleeX + 14, y: GY - 22 };
+  if (cur) {                                               // a brick thrown up to the row being laid
+    const h = handOf(cur[2]), t = fin(cur[0], cur[0] + (cur[1] - cur[0]) * 0.6), ty = GY - (half + cur[3] + 1) * rh + 8;
+    if (t < 1) bdBrick(lp(h.x, x0 + 28, ez(t)), lp(h.y, ty, ez(t)) - Math.sin(t * Math.PI) * 22);
+    if (!reduceMotion && t >= 1 && bdGlobal.cr !== cur[3]) { bdGlobal.cr = cur[3]; bdTick("tick"); }
+  }
+  // characters: the hero and Kylee are at the tower; Libby is inside until the hero knocks
+  const tick = { c: p >= 0.86, l: p >= 0.91, k: p >= 0.96 };
+  bdChar("kylee", kyleeX, GY, {});
+  if (libShown) bdChar("libby", libbyX, GY, { walk: (libStep > 0 && libStep < 1) || (libWalk > 0 && libWalk < 1) });
+  const hmoving = (p >= 0.44 && p < 0.53) || (p >= 0.7 && p < 0.8);
+  bdChar("hero", heroX, GY, { walk: hmoving, left: heroFace === "left" });
+  if (p >= 0.44 && p < 0.7) { bdCup(heroX - 20, GY - 30); bdCup(heroX - 13, GY - 27); }              // two coffee cups in her hands
+  if (p >= 0.7 && p < 0.82) bdCup(libbyX + 16, GY - 26);                                              // and Libby carries one of them
+  // Libby's empty spot (night): a chalk circle and her blank name tag
+  if (p >= 0.34 && p < 0.7) { ctx.globalAlpha = 0.55; ell(132, GY + 2, 22, 5, "#ffffff"); ell(132, GY + 2, 19, 3.5, "#6a7a52"); ctx.globalAlpha = 1; }
+  // name tags: Chelsea, Kylee, Libby
+  if (p >= 0.34) {
+    bdTag("Chelsea", heroX, GY - 80 - 20, tick.c); bdTag("Kylee", kyleeX, GY - 64 - 20, tick.k);
+    bdTag("Libby", p < 0.66 ? 132 : libbyX, GY - 64 - 20, tick.l);
+  }
+  if (p >= 0.56 && p < 0.7) bdBubble("Morning! Coffee's on me.", 124, 56, heroX);
+  if (p >= 0.525 && p < 0.575 && !reduceMotion && Math.floor(p * 120) % 2 === 0) { for (let i = 0; i < 3; i++) rect(houseX + 10 + i * 4, GY - 30 + (i === 1 ? -3 : 0), 1, 5, "#1b1426"); }       // knock knock
+  if (!reduceMotion && p >= 0.525 && p < 0.57 && Math.floor(p * 120) !== bdGlobal.knock) { bdGlobal.knock = Math.floor(p * 120); if (bdGlobal.knock % 2) bdTick("tick"); }
+  if (f < 1) { ctx.fillStyle = "rgba(8,12,38," + ((1 - f) * 0.3).toFixed(3) + ")"; ctx.fillRect(0, 26, W, H - 26); }
+  bd.pulse = p >= 0.96 ? "heart" : null;                   // the community heart pulses once all three boxes are ticked
+  bdPhone(p);                                              // the group chat comes first (it covers the scene while it is up)
+}
+function bdWoodTower(x0, w, rows) {                    // a stack of logs with a pitched roof (the third idea in the thought bubble)
+  const GY = BD.GY, N = 9, rh = 12;
+  for (let r = 0; r < Math.min(N, rows); r++) {
     const y = GY - (r + 1) * rh;
-    if (p > 0.05) { ctx.globalAlpha = 0.45; frame(x0, y, 56, rh, 1, "#ffffff"); ctx.globalAlpha = 1; text(String(r + 1), x0 - 8, y + 8, 1.5, "#ffffff", "right", "#1b1426"); }
-    if (rows[r] > 0) bricks(x0, y, Math.round(56 * rows[r]), rh, "#b5543a", "#8a3a28", "#d06a50");
-    if (rows[r] >= 1) rect(x0, y, 56, 1, "rgba(0,0,0,0.3)");
+    rect(x0 - 3, y, w + 6, rh, "#1b1426"); rect(x0 - 2, y + 1, w + 4, rh - 2, r % 2 ? "#a9743a" : "#b98246"); rect(x0 - 2, y + 1, w + 4, 2, "#d3a468"); rect(x0 - 2, y + rh - 3, w + 4, 2, "#7a4f22");
+    rect(x0 + 8 + (r % 3) * 14, y + 5, 10, 1, "#8a5a2a"); rect(x0 - 3, y + 2, 4, rh - 4, "#8a5a2a"); rect(x0 + w - 1, y + 2, 4, rh - 4, "#8a5a2a");
   }
-  bdTowerTop(r4 >= 1, N, rh, x0, 56);
-  const sitting = p >= 0.53 && p < 0.80, walkP = fin(0.53, 0.62), heroX = lp(70, 106, ez(walkP)), moving = walkP > 0 && walkP < 1;
-  const tick = { c: p >= 0.24, l: p >= 0.40, k: p >= 0.80 };
-  const glow = p >= 0.80 && p < 0.93;                  // the heart in the toolkit bar pulses; the shield glows on the hero's arm
-  bd.pulse = glow ? "heart" : null;
-  if (glow) { const a = 0.3 + 0.18 * Math.sin(timeNow * 8); ell(heroX - 27, GY - 30, 26, 28, "rgba(255,217,94," + (a * 0.6).toFixed(2) + ")"); ell(heroX - 27, GY - 30, 18, 20, "rgba(255,240,170," + a.toFixed(2) + ")"); }
-  bdChar("hero", heroX, GY, { walk: moving });
-  bdChar("kylee", 162, GY, { sit: sitting });
-  bdChar("libby", 214, GY, {});
-  bdTag("Chelsea", heroX, GY - 80 - 20, tick.c); bdTag("Kylee", 162, GY - 64 - 20 + (sitting ? 22 : 0), tick.k); bdTag("Libby", 214, GY - 64 - 20, tick.l);
-  if (p >= 0.62 && p < 0.86) bdBubble("We said four rows. I've got you.", 150, 62, heroX + 30);
-  // bricks flying: each row's owner throws one up to the tower as it fills
-  const fly = (a, b, sx0, sy0, row) => { if (p > a && p < b) { const f = (p - a) / (b - a); bdBrick(lp(sx0, x0 + 28, ez(f)), lp(sy0, GY - (row + 1) * rh + 8, ez(f)) - Math.sin(f * Math.PI) * 18); } };
-  fly(0.12, 0.24, heroX + 24, GY - 44, 0); fly(0.28, 0.40, 238, GY - 44, 1); fly(0.44, 0.50, 186, GY - 44, 2); fly(0.68, 0.80, 186, GY - 30, 2); fly(0.84, 0.94, heroX + 24, GY - 44, 3);
-  if (p >= 0.62 && p < 0.68) { const f = (p - 0.62) / 0.06; bdBrick(lp(heroX + 24, 150, ez(f)), GY - 44 - Math.sin(f * Math.PI) * 10, "#d06a50"); }       // the hero hands her a brick
-}
-function bdStone(rows, fix, x0, w) {                   // big grey stone blocks: a clearly different look from the bricks
-  const rh = 12, GY = BD.GY;
-  for (let r = 0; r < rows; r++) for (let c = -1; c < 3; c++) {
-    let bx = x0 + c * 28 + (r % 2) * 14, bw = 28, y = GY - (r + 1) * rh;
-    if (bx < x0) { bw -= x0 - bx; bx = x0; }
-    if (bx + bw > x0 + w) bw = x0 + w - bx;
-    if (bw <= 2) continue;
-    if (r === 4 && c === 0 && fix < 1) { continue; }
-    rect(bx, y, bw, rh, "#4a4f5c"); rect(bx + 1, y + 1, bw - 2, rh - 2, "#a9aebd"); rect(bx + 1, y + 1, bw - 2, 2, "#d3d7e2"); rect(bx + 1, y + rh - 3, bw - 2, 2, "#7d8394");
-    if ((r * 3 + c) % 3 === 0) rect(bx + 6, y + 5, 4, 1, "#8f94a6");
+  if (rows >= N) {
+    const top = GY - N * rh;
+    for (let r = 0; r < 16; r++) { rect(x0 - 6 + Math.round(r * 0.9), top - r - 1, w + 12 - Math.round(r * 1.8), 1, r % 3 === 2 ? "#5a3a1c" : "#7a4f22"); }
+    rect(x0 + w / 2, top - 30, 2, 14, "#8e8e8e"); rect(x0 + w / 2 + 2, top - 30, 12, 7, "#ffd95e");
+    rect(x0 + w / 2 - 6, GY - 22, 14, 22, "#1b1426"); rect(x0 + w / 2 - 5, GY - 21, 12, 21, "#5a3a1c");
   }
 }
-function bdIntegrity(p, bd) {                          // 3. Integrity: level, replace the crooked block, an inspection and a green stamp
+function bdIntegrity(p, bd) {                          // 3. Integrity (red brick like towers 1 and 2): level, replace the crooked brick, an inspection and a green stamp
   const TX = BD.TX, GY = BD.GY, x0 = TX - 28, rh = 12, fin = (a, b) => cl((p - a) / (b - a)), N = 9;
-  const rise = Math.min(N, Math.floor(fin(0.0, 0.2) * N + 1e-6) + (p > 0.2 ? 0 : 0)), rows = p >= 0.2 ? N : rise;
+  const rows = p >= 0.2 ? N : Math.floor(fin(0, 0.2) * N + 1e-6), rowY = GY - 3 * rh;      // the crooked block sits in the third row, at hand height
   const swap = fin(0.5, 0.64), outP = fin(0.5, 0.57), inP = fin(0.57, 0.64);
-  const row4y = GY - 5 * rh;
-  bdStone(rows, swap >= 1 ? 1 : swap > 0 && swap < 0.5 ? 0 : 0, x0, 56);
-  if (rows >= 5) {                                      // the crooked block (row 5, left), then its straight replacement
-    if (swap < 1) {
-      ctx.save(); ctx.translate(x0 + 14, row4y + 6 - outP * 18); ctx.rotate(0.14 * (1 - outP * 0)); ctx.globalAlpha = 1 - outP;
-      rect(-14, -6, 28, 12, "#4a4f5c"); rect(-13, -5, 26, 10, "#a9aebd"); rect(-13, -5, 26, 2, "#d3d7e2"); rect(-13, 3, 26, 2, "#7d8394");
+  bdBrickTower(rows, 0, N, rh, x0, 56);
+  bdTowerTop(rows >= N, N, rh, x0, 56);
+  if (rows >= 3) {
+    if (swap < 1) {                                      // the gap and the crooked block, sticking out and tilted, then sliding out
+      rect(x0, rowY, 28, rh, "#2a130d");
+      ctx.save(); ctx.translate(x0 + 16, rowY + 8 - outP * 14); ctx.rotate(0.16 * (1 - outP * 0.3)); ctx.globalAlpha = 1 - outP;
+      rect(-14, -6, 28, 12, "#1b1426"); rect(-13, -5, 26, 10, "#d0624a"); rect(-13, -5, 26, 2, "#f0a490"); rect(-13, 3, 26, 2, "#8a3a28"); rect(-4, -1, 8, 1, "#8a3a28");
       ctx.restore(); ctx.globalAlpha = 1;
     }
-    if (inP > 0) { const bx = x0, y = row4y; rect(bx - (1 - ez(inP)) * 40, y, 28, rh, "#4a4f5c"); rect(bx + 1 - (1 - ez(inP)) * 40, y + 1, 26, rh - 2, "#a9aebd"); rect(bx + 1 - (1 - ez(inP)) * 40, y + 1, 26, 2, "#d3d7e2"); rect(bx + 1 - (1 - ez(inP)) * 40, y + rh - 3, 26, 2, "#7d8394"); }
-  }
-  if (rows >= N) {                                      // battlements + a flag once the stone tower stands
-    const top = GY - N * rh;
-    rect(x0 - 3, top - 4, 62, 4, "#4a4f5c");
-    for (let k = 0; k < 5; k++) { rect(x0 + k * 13 - 2, top - 12, 8, 8, "#4a4f5c"); rect(x0 + k * 13 - 1, top - 11, 6, 6, "#a9aebd"); }
-    rect(TX, top - 30, 2, 20, "#8e8e8e"); rect(TX + 2, top - 30, 14, 8, "#ffd95e");
+    if (inP > 0) { const sx0 = x0 - (1 - ez(inP)) * 40; bricks(sx0, rowY, 28, rh, "#c25a3f", "#8a3a28", "#e07a62"); rect(sx0, rowY, 28, 1, "#f0a490"); }
   }
   const walkP = fin(0.2, 0.34), heroX = lp(120, 214, ez(walkP)), moving = walkP > 0 && walkP < 1;
-  const slideOut = fin(0.64, 0.7), treyIn = fin(0.66, 0.8), treyX = lp(-30, 214, ez(treyIn));
-  const heroX2 = lp(heroX, 150, ez(slideOut));
+  const slideOut = fin(0.64, 0.7), treyIn = fin(0.66, 0.8), treyX = lp(-30, 214, ez(treyIn)), heroX2 = lp(heroX, 150, ez(slideOut));
   if (p >= 0.66) bdChar("trey", treyX, GY, { walk: treyIn < 1 });
-  bdChar("hero", p >= 0.64 ? heroX2 : heroX, GY, { walk: moving || (slideOut > 0 && slideOut < 1) });
-  if ((p >= 0.34 && p < 0.7) && heroX2 > 200) {         // the spirit level held flat against the tower
-    const crooked = p < 0.64, ly = row4y - 4, lx = TX - 36;
-    rect(lx, ly, 44, 8, "#1b1426"); rect(lx + 1, ly + 1, 42, 6, "#f2b705"); rect(lx + 1, ly + 1, 42, 1, "#ffe27a");
-    rect(lx + 17, ly + 2, 10, 4, "#cfe9d6"); const bub = crooked ? 3 : 0; ell(lx + 22 + bub, ly + 4, 2, 2, crooked ? "#d2051e" : "#2f9e4f");
-    rect(lx - 12, ly + 3, 12, 3, "#e0ad7f");
-    if (crooked && p >= 0.44 && p < 0.56 && (reduceMotion || Math.sin(timeNow * 14) > -0.2)) text("!", x0 + 14, row4y - 16, 3, "#d2051e", "center", "#ffffff");
+  const hx = p >= 0.64 ? heroX2 : heroX;
+  bdChar("hero", hx, GY, { walk: moving || (slideOut > 0 && slideOut < 1) });
+  if (p >= 0.34 && p < 0.7 && hx > 200) {               // the spirit level held flat against the tower, in her hands
+    const crooked = p < 0.64, ly = rowY + 4, lx = TX - 36;
+    rect(lx - 6, ly + 2, 8, 4, "#f2c396"); rect(lx, ly, 44, 8, "#1b1426"); rect(lx + 1, ly + 1, 42, 6, "#f2b705"); rect(lx + 1, ly + 1, 42, 1, "#ffe27a");
+    rect(lx + 17, ly + 2, 10, 4, "#cfe9d6"); ell(lx + 22 + (crooked ? 3 : 0), ly + 4, 2, 2, crooked ? "#d2051e" : "#2f9e4f");
+    if (crooked && p >= 0.44 && p < 0.56 && (reduceMotion || Math.sin(timeNow * 14) > -0.2)) text("!", x0 + 14, rowY - 18, 3, "#d2051e", "center", "#ffffff");
   }
-  if (p >= 0.8) {                                       // Trey's magnifying glass over the replaced block
-    const gx = x0 + 14 + (p < 0.86 ? (0.86 - p) * 40 : 0), gy = row4y - 2;
-    rect(treyX + 20, GY - 52, 22, 3, "#8a5a00"); rect(gx - 9, gy - 9, 18, 18, "#1b1426"); ell(gx, gy, 8, 8, "#1b1426"); ell(gx, gy, 6, 6, "rgba(190,230,255,0.55)"); rect(gx - 4, gy - 4, 3, 1, "#ffffff");
-    const hx0 = treyX + 40, hy0 = GY - 52; for (let i = 0; i <= 12; i++) rect(lp(hx0, gx + 6, i / 12), lp(hy0, gy + 6, i / 12), 3, 3, "#5a3f2a");
+  if (p >= 0.8) {                                       // Trey's magnifying glass over the replaced brick
+    const gx = x0 + 14 + (p < 0.86 ? (0.86 - p) * 40 : 0), gy = rowY + 6, hx0 = treyX + 16, hy0 = GY - 64;
+    for (let i = 0; i <= 12; i++) rect(lp(hx0, gx - 4, i / 12), lp(hy0, gy + 6, i / 12), 3, 3, "#5a3f2a");
+    rect(gx - 9, gy - 9, 18, 18, "#1b1426"); ell(gx, gy, 8, 8, "#1b1426"); ell(gx, gy, 6, 6, "rgba(190,230,255,0.55)"); rect(gx - 4, gy - 4, 3, 1, "#ffffff");
   }
   if (p >= 0.88) {                                      // the green INSPECTED stamp slams onto the tower
     const f = reduceMotion ? 1 : cl((p - 0.88) / 0.06), sc = lp(2.6, 1, ez(f)), cxs = TX, cys = GY - 70;
@@ -2428,34 +2509,54 @@ function bdIntegrity(p, bd) {                          // 3. Integrity: level, r
     if (!reduceMotion && p < 0.9 && !bd.stamped) { bd.stamped = true; burst(cxs, cys, "#6fe08e", 14); flash = 0.15; }
   }
 }
-function bdSteel(p, bd) {                              // 4. Courage: the first girder out over empty air, then steel and sparks climbing
+function bdThought(bIn, bOut, z) {                      // a large thought bubble over the hero: red brick, steel and wood towers side by side; it zooms in and back out
+  const base = { x: 214, y: 80 }, centre = { x: 192, y: 126 }, k = 1 + 1.4 * z, px = lp(base.x, centre.x, z), py = lp(base.y, centre.y, z);
+  if (z > 0) { ctx.fillStyle = "rgba(6,4,12," + (0.8 * z).toFixed(3) + ")"; ctx.fillRect(0, 26, W, H - 26); }       // the world dims while we look into her thought
+  ctx.save(); ctx.translate(px, py); ctx.scale(k * (0.4 + 0.6 * bIn) * (1 - bOut * 0.25), k * (0.4 + 0.6 * bIn) * (1 - bOut * 0.25));
+  ctx.globalAlpha = Math.min(1, bIn * 2) * (1 - bOut);
+  const puffs = [[0, 0, 68, 24], [-54, -6, 16, 14], [54, -6, 16, 14], [-34, -20, 18, 11], [30, -21, 20, 11], [-40, 14, 18, 11], [38, 15, 18, 11], [0, -22, 22, 9], [0, 22, 26, 9]];
+  for (const [x, y, rx, ry] of puffs) ell(x, y, rx + 1, ry + 1, "#1b1426");
+  for (const [x, y, rx, ry] of puffs) ell(x, y, rx, ry, "#ffffff");
+  ell(-30, -12, 22, 6, "rgba(190,215,255,0.25)");
+  const wx = -28 - 14 * 0, trail = [[-8, 26, 3.5], [-11, 31, 2.5], [-13, 35, 1.8]];                 // the little thought circles down to her head
+  for (const [x, y, r] of trail) { ell(x, y, r + 1, r + 1, "#1b1426"); ell(x, y, r, r, "#ffffff"); }
+  const pulse = 0.5 + 0.5 * Math.sin(timeNow * 6), items = [[0, -40, "Brick"], [3, 0, "Steel"], [4, 40, "Wood"]];       // red brick (the original), steel, wood
+  for (const [i, x, label] of items) {
+    bdMini(i, x, 16, 0.27);
+    text(label, x, 19, 1, i === 3 ? "#8a5a00" : "#1b1426", "center");
+  }
+  if (z > 0.6) { ctx.globalAlpha *= 1; frame(-17, -26, 40, 52, 1, "rgba(255,196,40," + (0.5 + 0.5 * pulse).toFixed(2) + ")"); frame(-18, -27, 42, 54, 1, "rgba(255,217,94," + (0.3 + 0.4 * pulse).toFixed(2) + ")"); }   // the steel one is the choice
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+function bdSteel(p, bd) {                              // 4. Courage: a thought bubble of three towers (zoom in, zoom out), then the first girder out over empty air and steel climbing with sparks
   const TX = BD.TX, GY = BD.GY, fin = (a, b) => cl((p - a) / (b - a));
   for (let i = 0; i < 12; i++) rect(236, GY - 20 + i * 4, W - 236, 4, "rgba(27,37,64," + Math.min(1, i / 8).toFixed(2) + ")");   // the void: no ground under the girder, fading down into darkness
   rect(236, GY + 28, W - 236, H - GY - 28, "#1b2540");
   for (let i = 0; i < 6; i++) rect(236, GY + 8 + i * 4, W - 236, 2, "rgba(60,80,140," + (0.35 - i * 0.04).toFixed(2) + ")");
   ell(300, GY + 24, 60, 12, "rgba(255,150,60,0.10)");
   rect(222, GY, 16, H - GY, "#6a5a48"); rect(222, GY, 4, H - GY, "#8a7a64"); rect(234, GY, 4, 40, "#4a3c2c");                  // the cliff edge
-  const out = ez(fin(0.1, 0.3)), gl = lp(0, 76, out), gx = 236, gyy = GY - 8;
-  const walkP = fin(0.0, 0.1), heroX = lp(120, 200, ez(walkP));
-  bdChar("hero", p < 0.1 ? heroX : 200, GY, { walk: p < 0.1 });
-  if (gl > 0) {                                          // the first girder, sliding out into thin air
-    const bounce = p > 0.3 && p < 0.36 && !reduceMotion ? Math.round(Math.sin((p - 0.3) * 160) * 2) : 0;
-    rect(gx - 4, gyy - 1 + bounce, gl + 4, 10, "#1b1426"); rect(gx - 3, gyy + bounce, gl + 3, 8, "#9aa4b8"); rect(gx - 3, gyy + bounce, gl + 3, 2, "#d3d9e6"); rect(gx - 3, gyy + 6 + bounce, gl + 3, 2, "#6a738a");
-    for (let i = 0; i < gl; i += 8) rect(gx + i, gyy + 3 + bounce, 2, 2, "#5a6278");
+  const walkP = fin(0, 0.06), heroX = p < 0.06 ? lp(120, 200, ez(walkP)) : 200, hand = { x: heroX + 16, y: GY - 25 };
+  bdChar("hero", heroX, GY, { walk: p < 0.06 });
+  const bIn = ez(fin(0.06, 0.14)), bOut = ez(fin(0.58, 0.66)), z = ez(fin(0.16, 0.3)) * (1 - ez(fin(0.46, 0.58)));
+  const out = ez(fin(0.64, 0.74)), drop = ez(fin(0.74, 0.78)), right = lp(hand.x, 296, out), gyy = lp(GY - 26, GY - 8, drop);
+  if (out > 0) {                                         // the first girder carried out in her hands, over empty air
+    const bounce = p > 0.78 && p < 0.84 && !reduceMotion ? Math.round(Math.sin((p - 0.78) * 150) * 2) : 0, gl = Math.max(0, right - hand.x);
+    rect(hand.x - 1, gyy - 1 + bounce, gl + 2, 10, "#1b1426"); rect(hand.x, gyy + bounce, gl, 8, "#9aa4b8"); rect(hand.x, gyy + bounce, gl, 2, "#d3d9e6"); rect(hand.x, gyy + 6 + bounce, gl, 2, "#6a738a");
+    for (let i = 0; i < gl; i += 8) rect(hand.x + 4 + i, gyy + 3 + bounce, 2, 2, "#5a6278");
   }
-  const L = 6, lh = 18, built = fin(0.34, 0.96) * L, full = Math.floor(built + 1e-6), partial = built - full, bx0 = TX - 24, bx1 = TX + 24, by0 = gyy;
-  const level = (i, k) => {                              // one level of the steel frame: two posts and an X brace
-    const yb = by0 - i * lh, ht = Math.round(lh * k);
+  const L = 6, lh = 18, built = fin(0.78, 0.97) * L, full = Math.floor(built + 1e-6), partial = built - full, bx0 = TX - 24, bx1 = TX + 24, by0 = GY - 8;
+  const level = (i, kk) => {                              // one level of the steel frame: two posts and an X brace
+    const yb = by0 - i * lh, ht = Math.round(lh * kk);
     rect(bx0 - 2, yb - ht, 5, ht, "#1b1426"); rect(bx0 - 1, yb - ht, 3, ht, "#c9ced9"); rect(bx1 - 2, yb - ht, 5, ht, "#1b1426"); rect(bx1 - 1, yb - ht, 3, ht, "#c9ced9");
-    if (k >= 1) { for (let q = 0; q < 46; q += 2) { const yy = Math.round(q * lh / 46); rect(bx0 + 2 + q, yb - lh + yy, 2, 2, "#8a93a8"); rect(bx1 - 4 - q, yb - lh + yy, 2, 2, "#8a93a8"); } rect(bx0 - 2, yb - lh, bx1 - bx0 + 5, 3, "#1b1426"); rect(bx0 - 1, yb - lh + 1, bx1 - bx0 + 3, 1, "#e6e9f0"); }
+    if (kk >= 1) { for (let q = 0; q < 46; q += 2) { const yy = Math.round(q * lh / 46); rect(bx0 + 2 + q, yb - lh + yy, 2, 2, "#8a93a8"); rect(bx1 - 4 - q, yb - lh + yy, 2, 2, "#8a93a8"); } rect(bx0 - 2, yb - lh, bx1 - bx0 + 5, 3, "#1b1426"); rect(bx0 - 1, yb - lh + 1, bx1 - bx0 + 3, 1, "#e6e9f0"); }
   };
   for (let i = 0; i < Math.min(L, full); i++) level(i, 1);
   if (full < L && partial > 0) level(full, partial);
-  if (p >= 0.995 && !reduceMotion) { /* finished */ }
-  const topY = by0 - Math.min(L, built) * lh, workX = (full % 2 ? bx1 : bx0);
-  const prog = fin(0.34, 0.96);
-  if (p > 0.3) { ell(TX, topY + 20, 70, 60, "rgba(255,150,40," + (0.05 + 0.12 * prog).toFixed(3) + ")"); ell(TX, topY + 10, 40, 36, "rgba(255,200,90," + (0.08 + 0.12 * prog).toFixed(3) + ")"); }
-  if (p > 0.34 && p < 0.97) {                            // welding sparks at the working point
+  const topY = by0 - Math.min(L, built) * lh, workX = (full % 2 ? bx1 : bx0), prog = fin(0.78, 0.97);
+  if (p > 0.74) { ell(TX, topY + 20, 70, 60, "rgba(255,150,40," + (0.05 + 0.12 * prog).toFixed(3) + ")"); ell(TX, topY + 10, 40, 36, "rgba(255,200,90," + (0.08 + 0.12 * prog).toFixed(3) + ")"); }
+  if (p > 0.78 && p < 0.985) {                           // the welding torch in her hand, the arc, and the sparks at the working point
+    rect(hand.x - 2, hand.y - 3, 8, 4, "#4a5062"); rect(hand.x + 4, hand.y - 4, 3, 2, "#ffd95e");
+    const n = 18; for (let i = 1; i < n; i++) { const f = i / n; if (reduceMotion || Math.sin(timeNow * 30 + i) > -0.3) rect(lp(hand.x + 6, workX, f), lp(hand.y - 4, topY, f), 1, 1, i % 2 ? "#fff6c8" : "#ffd95e"); }
     const cols = ["#fff6c8", "#ffd95e", "#ff9a2a", "#ffffff"];
     for (let i = 0; i < 16; i++) {
       const ph = (reduceMotion ? i * 0.37 : timeNow * 3 + i * 0.37) % 1, ang = i * 2.4 + Math.floor(timeNow * 6) * 0.7, rr = ph * 22;
@@ -2465,15 +2566,95 @@ function bdSteel(p, bd) {                              // 4. Courage: the first 
     rect(workX - 3, topY - 4, 7, 7, "#fffbe0"); ell(workX, topY - 1, 6, 6, "rgba(255,255,255,0.55)");
     if (!reduceMotion && Math.floor(timeNow * 9) !== bdGlobal.weld) { bdGlobal.weld = Math.floor(timeNow * 9); bdTick("weld"); }
   }
-  if (p >= 0.995) { const top = topY; rect(TX, top - 22, 2, 22, "#8e8e8e"); rect(TX + 2, top - 22, 14, 8, "#ffd95e"); rect(TX + 2, top - 22, 14, 1, "#fff6c8"); }
+  if (p >= 0.995) { rect(TX, topY - 22, 2, 22, "#8e8e8e"); rect(TX + 2, topY - 22, 14, 8, "#ffd95e"); rect(TX + 2, topY - 22, 14, 1, "#fff6c8"); }
+  if (bIn > 0 && bOut < 1) bdThought(bIn, bOut, z);
 }
-function bdMini(i, cx, base, k) {                      // a finished tower, small, for the background / the castle view
+function bdMini(i, cx, base, k) {                      // a finished tower, small, for the background / the castle view / the thought bubble
   ctx.save(); ctx.translate(cx, base); ctx.scale(k, k); ctx.translate(-BD.TX, -BD.GY);
-  if (i === 0) { bdBrickTower(12, 0, 12, 9, BD.TX - 28, 56); bdTowerTop(true, 12, 9, BD.TX - 28, 56); }
-  else if (i === 1) { bdBrickTower(4, 0, 4, 24, BD.TX - 28, 56); bdTowerTop(true, 4, 24, BD.TX - 28, 56); }
-  else if (i === 2) { bdStone(9, 1, BD.TX - 28, 56); const top = BD.GY - 108; rect(BD.TX - 31, top - 4, 62, 4, "#4a4f5c"); rect(BD.TX, top - 30, 2, 20, "#8e8e8e"); rect(BD.TX + 2, top - 30, 14, 8, "#ffd95e"); }
-  else { for (let q = 0; q < 6; q++) { const yb = BD.GY - 8 - q * 18; rect(BD.TX - 26, yb - 18, 5, 18, "#c9ced9"); rect(BD.TX + 22, yb - 18, 5, 18, "#c9ced9"); rect(BD.TX - 26, yb - 18, 53, 3, "#9aa4b8"); } rect(BD.TX - 28, BD.GY - 8, 56, 8, "#9aa4b8"); rect(BD.TX, BD.GY - 128, 2, 22, "#8e8e8e"); rect(BD.TX + 2, BD.GY - 128, 14, 8, "#ffd95e"); }
+  const x0 = BD.TX - 28;
+  if (i === 0) { bdBrickTower(12, 0, 12, 9, x0, 56); bdTowerTop(true, 12, 9, x0, 56); }
+  else if (i === 1) { bdBrickTower(7, 0, 7, 16, x0, 56); bdTowerTop(true, 7, 16, x0, 56); }
+  else if (i === 2) { bdBrickTower(9, 0, 9, 12, x0, 56); bdTowerTop(true, 9, 12, x0, 56); }
+  else if (i === 3) { for (let q = 0; q < 6; q++) { const yb = BD.GY - 8 - q * 18; rect(BD.TX - 26, yb - 18, 5, 18, "#c9ced9"); rect(BD.TX + 22, yb - 18, 5, 18, "#c9ced9"); rect(BD.TX - 26, yb - 18, 53, 3, "#9aa4b8"); } rect(BD.TX - 28, BD.GY - 8, 56, 8, "#9aa4b8"); rect(BD.TX, BD.GY - 128, 2, 22, "#8e8e8e"); rect(BD.TX + 2, BD.GY - 128, 14, 8, "#ffd95e"); }
+  else { bdWoodTower(x0, 56, 9); }
   ctx.restore();
+}
+/* ---- the three cards after the build: Why Hilti, Still to unlock, What I expect (all text in finale.why) ---- */
+function pxHandshake(cx, cy, k) {                         // two sleeves and a clasp of hands
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k);
+  const ink = "#1b1426", sk = "#f2c396", sd = "#c8905e";
+  rect(-19, -7, 11, 13, ink); rect(-18, -6, 9, 11, "#2f6fd0"); rect(-18, -6, 3, 11, "#4f8fe8");
+  rect(8, -7, 11, 13, ink); rect(9, -6, 9, 11, "#d2051e"); rect(15, -6, 3, 11, "#9a0a16");
+  rect(-9, -5, 18, 11, ink); rect(-8, -4, 16, 9, sk); rect(-9, -6, 2, 12, "#ffffff"); rect(7, -6, 2, 12, "#ffffff");
+  for (let i = 0; i < 4; i++) { rect(-5 + i * 3, 2, 2, 4, ink); rect(-4 + i * 3, 2, 1, 3, sd); }      // fingers wrapped around
+  rect(-6, -7, 11, 4, ink); rect(-5, -6, 9, 3, sk); rect(-5, -4, 9, 1, sd);                           // the thumb on top
+  ctx.restore();
+}
+function pxMentor(cx, cy, k) {                            // an older figure with grey hair, glasses and a tie, holding up a lightbulb
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k);
+  const ink = "#1b1426";
+  rect(-9, -2, 18, 22, ink); rect(-8, -1, 16, 20, "#4a5068"); rect(-1, -1, 2, 14, "#d2051e"); rect(-3, -1, 6, 2, "#ffffff");      // jacket + tie
+  rect(-7, -17, 14, 16, ink); rect(-6, -16, 12, 14, "#f2c396"); rect(-7, -18, 14, 5, ink); rect(-6, -17, 12, 3, "#c9ced9");        // head + grey hair
+  rect(-5, -11, 4, 3, ink); rect(1, -11, 4, 3, ink); rect(-4, -10, 2, 1, "#bcd6f2"); rect(2, -10, 2, 1, "#bcd6f2"); rect(-1, -10, 2, 1, ink);   // glasses
+  rect(-2, -5, 4, 1, "#a8603a");
+  rect(8, -8, 3, 12, ink); rect(9, -7, 1, 10, "#4a5068");                                                                     // raised arm
+  ell(12, -14, 6, 6, ink); ell(12, -14, 5, 5, "#ffe27a"); rect(10, -8, 5, 3, "#9aa4b8"); rect(9, -20, 1, 1, "#ffe27a"); rect(14, -21, 1, 1, "#ffe27a");
+  ctx.restore();
+}
+function pxCycle(cx, cy, k, spin) {                       // two arrows chasing each other round a circle
+  const r = 12 * k, a0 = spin;
+  for (let h = 0; h < 2; h++) {
+    for (let q = 0; q <= 14; q++) {
+      const a = a0 + h * Math.PI + q * 0.17, x = Math.round(cx + Math.cos(a) * r), y = Math.round(cy + Math.sin(a) * r);
+      rect(x - 2, y - 2, 4, 4, "#1b1426"); rect(x - 1, y - 1, 2, 2, h ? "#f2b705" : "#3fb4d8");
+    }
+    const ae = a0 + h * Math.PI + 14 * 0.17 + 0.25, tx = cx + Math.cos(ae) * r, ty = cy + Math.sin(ae) * r, dx = -Math.sin(ae), dy = Math.cos(ae), col = h ? "#f2b705" : "#3fb4d8";      // arrowhead: a small triangle pointing along the circle
+    for (let q = 0; q < 4; q++) for (let m = -q; m <= q; m++) { const bx = tx + dx * (5 - q * 2) + Math.cos(ae) * m * 1.5, by = ty + dy * (5 - q * 2) + Math.sin(ae) * m * 1.5; rect(Math.round(bx) - 1, Math.round(by) - 1, 3, 3, q === 3 && Math.abs(m) === 3 ? "#1b1426" : col); }
+  }
+}
+function pxFlagCN(x, y) { rect(x - 1, y - 1, 12, 9, "#1b1426"); rect(x, y, 10, 7, "#de2910"); rect(x + 1, y + 1, 2, 2, "#ffde00"); rect(x + 4, y + 1, 1, 1, "#ffde00"); rect(x + 5, y + 2, 1, 1, "#ffde00"); rect(x + 5, y + 4, 1, 1, "#ffde00"); rect(x + 4, y + 5, 1, 1, "#ffde00"); }
+function pxFlagDE(x, y) { rect(x - 1, y - 1, 12, 9, "#1b1426"); rect(x, y, 10, 3, "#111111"); rect(x, y + 3, 10, 2, "#dd0000"); rect(x, y + 5, 10, 2, "#ffce00"); }
+function pxLock(cx, cy, open, flags) {                    // open: 0 closed .. 1 open (the shackle lifts and its right leg swings free); a click flash at the start
+  const ink = "#1b1426", e = ez(cl(open)), lift = Math.round(e * 9), top = cy - 18 - lift;
+  rect(cx - 7, top, 14, 3, ink); rect(cx - 6, top + 1, 12, 1, "#c9ced9");                                        // the bar of the shackle
+  rect(cx - 7, top, 3, cy - 8 - top, ink); rect(cx - 6, top + 1, 1, cy - 9 - top, "#c9ced9");                    // left leg, stays in the body
+  const rl = e > 0.5 ? 5 : cy - 8 - top; rect(cx + 4, top, 3, rl, ink); rect(cx + 5, top + 1, 1, rl - 1, "#c9ced9");   // right leg: in the body, then free
+  rect(cx - 13, cy - 8, 26, 20, ink); rect(cx - 12, cy - 7, 24, 18, open >= 1 ? "#d9a21a" : "#f2b705"); rect(cx - 12, cy - 7, 24, 3, "#ffe27a"); rect(cx - 12, cy + 8, 24, 3, "#b07e0a");
+  if (flags) { pxFlagCN(cx - 11, cy - 3); pxFlagDE(cx + 1, cy - 3); }
+  else { rect(cx - 2, cy - 2, 4, 4, ink); rect(cx - 1, cy + 2, 2, 5, ink); }
+  if (open > 0 && open < 0.35 && !reduceMotion) { const f = open / 0.35; ctx.globalAlpha = 1 - f; for (let i = 0; i < 6; i++) { const a = i * 1.05 + 0.4, d = 14 + f * 8; rect(Math.round(cx + Math.cos(a) * d * 1.3), Math.round(cy - 6 + Math.sin(a) * d), 2, 2, "#fff6c8"); } ctx.globalAlpha = 1; }      // the click
+}
+function drawWhy(F) {
+  const c = card, Y = F.why, w = c.why, R = reduceMotion, GY = BD.GY;
+  rect(0, 26, W, H - 26, "#12162c");
+  for (let i = 0; i < 30; i++) { const sx0 = 6 + ((i * 89) % (W - 12)), sy0 = 32 + ((i * 47) % 120), tw = R ? 1 : 0.4 + 0.6 * Math.max(0, Math.sin(timeNow * 1.4 + i * 1.9)); ctx.globalAlpha = tw * 0.8; rect(sx0, sy0, 1, 1, "#fff6c8"); ctx.globalAlpha = 1; }
+  rect(0, GY - 6, W, H - GY + 6, "#1b2a22"); rect(0, GY - 6, W, 2, "#2f5a3a");
+  const a = R ? 1 : cl((c.t - (c.wt || 0)) / 0.5);
+  ctx.globalAlpha = a;
+  const title = w === 1 ? Y.title : w === 2 ? Y.unlockTitle : Y.expectTitle;
+  lightLabel(title, W / 2, 34, 2, "center");
+  if (w === 1) {
+    ctx.save(); ctx.translate(112, 150 - BD.GY); bdHouse(0 + 0, true, false); ctx.restore();
+    pxHandshake(272, 134, 2.2);
+    const rows = wrap(Y.text, 34); rows.forEach((r, i) => lightLabel(r, W / 2, 168 + i * 17, 1.5, "center"));
+  } else if (w === 2) {
+    const xs = [70, 192, 314];
+    Y.locks.forEach((lab, i) => {
+      const cx = xs[i], op = (c.lk || 0) > i ? (R ? 1 : cl((c.t - ((c.lkT || [])[i] || 0)) / 0.7)) : 0;
+      rect(cx - 52, 66, 104, 108, "#1b1426"); rect(cx - 51, 67, 102, 106, "#2a3050"); rect(cx - 51, 67, 102, 3, "#3a4468");
+      pxLock(cx, 108, op, i === 2);
+      const ls = wrap(lab, 15); ls.forEach((r, j) => text(r, cx, 138 + j * 13, 1.5, op >= 1 ? "#ffe27a" : "#ffffff", "center"));
+    });
+  } else {
+    const xs = [80, 192, 304];
+    xs.forEach(cx => { rect(cx - 40, 62, 80, 80, "#1b1426"); rect(cx - 39, 63, 78, 78, "#2a3050"); rect(cx - 39, 63, 78, 3, "#3a4468"); });
+    pxHandshake(xs[0], 104, 1.7); pxMentor(xs[1], 108, 1.7); pxCycle(xs[2], 102, 1.5, R ? 0 : timeNow * 1.3);
+    lightLabel(Y.expect, W / 2, 160, 1.5, "center");
+  }
+  ctx.globalAlpha = 1;
+  if (c.tdone || true) { const lab = CONFIG.ui.promptSpace; lightLabel(lab, W / 2, 196, 1.5, "center"); }
+  rect(213, 0, W - 213, 26, "#07060c");
+  drawToolkitBar();
 }
 function drawBuild(F) {
   const c = card, bd = c.bd, T = buildTimes(F), t = bd.t, TW = F.build.towers, R = reduceMotion, GY = BD.GY, END = BD.END;
@@ -2875,7 +3056,7 @@ function drawCard() {
   }
   if (st.finale && c.stage === 1) drawGlobeZoom(st.finale);   // the zoomed-in globe covers the whole screen
   if (st.finale && c.stage === 4) drawOutro(st.finale);       // so does the dark finale
-  if (st.finale && c.stage === 0 && c.bd) drawBuild(st.finale);   // and the build sequence
+  if (st.finale && c.stage === 0 && c.bd) { if (c.why) drawWhy(st.finale); else drawBuild(st.finale); }   // and the build sequence, then its three closing cards
   if (st.battle && c.phase === 2 && c.bt && !reduceMotion) {                                   // the second IMPORTANT DECISION (Undergrad: grad school, but where?)
     const k = beatsOf(st).indexOf("decide");
     if (k >= 0 && c.bt[k] != null) { const up = bu(c, k); if (up >= 0 && up < DECISION.question) drawDecision(up, "dec2"); }
@@ -2924,7 +3105,7 @@ function drawParty(ox, feetY, hop, drops, lunge, beside) {  // big battle-scene 
   const up = (k) => (hop && !reduceMotion ? Math.round(Math.abs(Math.sin(timeNow * 11 + k * 1.6)) * 5) : 0);
   const ms = partyMates();
   for (let k = ms.length - 1; k >= 0; k--) {       // back row first so the hero stands in front of them
-    const m = ms[k], fx = ox + (beside ? 76 : 68) + k * 38, fy = feetY - (beside || m.tall ? 0 : 5 + k * 5) - (m.h || 32) * q - up(k + 1);
+    const m = ms[k], fx = ox + (beside ? 76 : 68) + k * 38, fy = feetY + (m.tall ? 12 : 0) - (beside || m.tall ? 0 : 5 + k * 5) - (m.h || 32) * q - up(k + 1);      // the very tall friend stands a bit nearer the camera, so his head stays below the boss's health bar
     if (m.friend) drawFriendHi(fx, fy, s, m, k); else drawMateHi(fx, fy, s, true, false, 0, m, k);
   }
   const oy = feetY - 40 * q - up(0);
@@ -3104,9 +3285,13 @@ function drawEnd() {
     frame(x - 2, yy - 2, 20, 22, 1, "#f2b705");
     iconAt(k, x - 2, yy - 2, 20, 22);
   });
-  if (Math.sin(timeNow * 3) > -0.4)
-    lightLabel(CONFIG.endPrompt, W / 2, 170, 2, "center");
-  lightLabel(CONFIG.ui.meetPrompt, W / 2, 194, 1.5, "center");                                            // C opens the meet-the-characters slides
+  lightLabel(CONFIG.endPrompt, W / 2, 166, 2, "center");                                          // "THANK YOU" now just stands still
+  const pk = reduceMotion ? 0 : Math.abs(Math.sin(timeNow * 3)), ps = 1 + 0.07 * pk, py = 192;      // the C prompt is bigger and pulses
+  if (!reduceMotion) ell(W / 2, py + 8, 150 + 14 * pk, 14 + 4 * pk, "rgba(255,217,94," + (0.08 + 0.12 * pk).toFixed(3) + ")");
+  ctx.save(); ctx.translate(W / 2, py + 8); ctx.scale(ps, ps); ctx.translate(-W / 2, -(py + 8));
+  const lab = lightLabel(CONFIG.ui.meetPrompt, W / 2, py, 2, "center", pk > 0.5 ? "#b01428" : "#1b1426");
+  frame(lab.x - 2, lab.y - 2, lab.w + 4, lab.h + 4, 1, "rgba(255,217,94," + (0.4 + 0.5 * pk).toFixed(2) + ")");
+  ctx.restore();
 }
 
 function drawParticles() {
