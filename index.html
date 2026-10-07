@@ -43,7 +43,7 @@ const CONFIG = {
   title:      "HILTI QUEST",
   subtitle:   "THE ROAD TO THE CASTLE",
   byline:     "CHELSEA ROMAS",
-  pressStart: "PRESS SPACE TO BEGIN",
+  pressStart: "PRESS ENTER TO BEGIN",
 
   objective: "Objective:", mission: "Help Chelsea complete her toolkit.", toolkitCount: "Toolkit: 0 of 7 tools",      // the screen after the title
 
@@ -98,7 +98,7 @@ const CONFIG = {
             { name: "Integrity",  secs: 11, caption: "Integrity: Own it, Fix it" },
             { name: "Courage",    secs: 16, caption: "Courage: To build differently" }
           ],
-          done: "Press Space to continue."                               // shown only once the hat has landed and the toolkit has lit
+          done: "Press Enter to continue."                               // shown only once the hat has landed and the toolkit has lit
         },
         why: {                                                           // three short cards after the build, one Space each: Why Hilti -> Still to unlock -> What I expect
           title: "Why Hilti", text: "Community impact is part of how Hilti works.",
@@ -122,7 +122,7 @@ const CONFIG = {
 
   ui: {                    // fixed words on the cards
     boss: "BOSS BATTLE", fight: "FIGHT!", victory: "VICTORY!", toolkit: "Added to toolkit",
-    joined: "TEAMMATES JOINED", promptSpace: "PRESS SPACE", meetPrompt: "PRESS C TO MEET THE CHARACTERS", promptEnter: "PRESS ENTER", toolkitBar: "TOOLKIT",
+    joined: "TEAMMATES JOINED", promptSpace: "PRESS ENTER", meetPrompt: "PRESS C TO MEET THE CHARACTERS", promptEnter: "PRESS ENTER", toolkitBar: "TOOLKIT",
     sanitize: "PRESS ENTER TO USE HAND SANITIZER.", ask: "Where do I go to school?", reveal: "PRESS ENTER TO REVEAL.", wreck: "WRECK EM!"
   },
 
@@ -725,6 +725,18 @@ function enterKey() {                         // ENTER on a card: reveal / use. 
   if (card.phase < 2) battleStep();           // use the hand sanitizer (or skip its animation)
   else if (card.stage === 0) revealFromCard();
 }
+function enterForward() {                    // ENTER is the one action key: next, attack, use the sanitizer, reveal, zoom, continue (Space still works quietly as an old alias)
+  if (state === S.CARD) {
+    const st = STOPS[card.i];
+    if (!card.tdone) return;                                            // wait for the text, as always
+    if (st.finale && card.stage === 0 && card.bd && !card.bd.done) return;   // the tower build runs by itself (F skips a tower, P pauses)
+    if (st.finale && card.stage === 1 && card.g.zd) return;             // let the globe finish zooming
+    cardForward(); return;
+  }
+  if (state === S.MAP && idx < STOPS.length && isMystery(STOPS[idx])) { revealStop(idx); return; }      // the hidden next stop is revealed first
+  if (state === S.END) { reopen(); return; }
+  advance();
+}
 function reopen() {
   if (state === S.MAP && idx < STOPS.length && isMystery(STOPS[idx])) { revealStop(idx); return; }
   if ((state === S.MAP || state === S.END) && idx > 0) openCard(idx - 1);
@@ -792,7 +804,7 @@ addEventListener("keydown", e => {
   else if ((k === "f" || k === "F") && !e.shiftKey) { e.preventDefault(); stepForward(); }                    // F: presenter shortcut, skip ahead one small step
   else if (k === "b" || k === "B") { e.preventDefault(); stepBack(); }                                           // B: presenter shortcut, back one small step
   else if (k === "Backspace" || k === "ArrowLeft" || k === "PageUp") { e.preventDefault(); goBack(); }
-  else if (k === "Enter" || k === "ArrowUp") { e.preventDefault(); act(() => { if (state === S.CARD) enterKey(); else reopen(); }); }
+  else if (k === "Enter" || k === "ArrowUp") { e.preventDefault(); act(enterForward); }
   else if (k === "r" || k === "R") { reset(); }
   else if (k === "s" || k === "S") {                                                                              // S: fullscreen
     const el = document.getElementById("wrap");
@@ -931,11 +943,10 @@ function drawTimer() {
 }
 function drawHintBar() {                       // controls, kept in a small bar clear of every label
   rect(HINT_BAR.x - 1, HINT_BAR.y - 1, HINT_BAR.w + 2, HINT_BAR.h + 2, "#1b1426"); rect(HINT_BAR.x, HINT_BAR.y, HINT_BAR.w, HINT_BAR.h, "#f4f1e6");
-  text("SPACE: NEXT / ATTACK", HINT_BAR.x + 4, HINT_BAR.y + 4, 1, "#1b1426", "left");
-  text("ENTER: REVEAL / USE", HINT_BAR.x + 4, HINT_BAR.y + 12, 1, "#1b1426", "left");
-  let hx = HINT_BAR.x + 4;                                                                   // line 3: four short commands spaced out evenly
+  text("ENTER: NEXT / ATTACK / USE", HINT_BAR.x + 4, HINT_BAR.y + 4, 1, "#1b1426", "left");
+  let hx = HINT_BAR.x + 4;                                                                   // line 2: two short commands spaced out evenly
   for (const [t, on] of [["R RESET", 1], ["M MUSIC", MUSIC.on]]) {   // "M MUSIC" greys out while muted
-    text(t, hx, HINT_BAR.y + 20, 1, on ? "#1b1426" : "#a8a49a", "left"); hx += textW(t, 1) + 5;
+    text(t, hx, HINT_BAR.y + 14, 1, on ? "#1b1426" : "#a8a49a", "left"); hx += textW(t, 1) + 5;
   }
 }
 
@@ -3170,7 +3181,7 @@ function drawCard() {
 // (pop), rests there with its name under it (hold), then flies up into the toolkit bar (fly).
 function toolTimes() {                      // each tool: pops out of the boss -> big showcase at centre -> flies to its tray slot -> rests -> flies into the toolkit bar
   return reduceMotion ? { gap: 0.7, pop: 0.05, show: 0.6, tray: 0.05, hold: 0.3, fly: 0.05 }
-                      : { gap: 3.4, pop: 0.9, show: 2.2, tray: 0.8, hold: 0.6, fly: 0.9 };      // slow on purpose, so the room can see what each tool is
+                      : { gap: 2.7, pop: 0.75, show: 1.75, tray: 0.65, hold: 0.45, fly: 0.75 };      // slow on purpose, so the room can see what each tool is
 }
 function toolDone() { const T = toolTimes(); return T.pop + T.show + T.tray + T.hold + T.fly; }     // seconds until a tool counts as in the toolkit bar
 /* ---- beats: after the tools land, a stop can have a chain of beats; the presenter's Space starts each one (card.bt = the card clock when each started) ---- */
@@ -3315,7 +3326,7 @@ function drawMapScene() {
     const hidden = idx < STOPS.length && isMystery(STOPS[idx]);
     if (idx < STOPS.length && !hidden) lightLabel("NEXT: " + labelOf(STOPS[idx]), W - 6, H - 42, 1.5, "right");   // "NEXT: ???" says nothing, so it is dropped while hidden
     if (hidden) lightLabel(CONFIG.ui.promptEnter + " TO REVEAL", W - 6, H - 42, 1.5, "right");                      // ENTER reveals the hidden stop
-    lightLabel(CONFIG.ui.promptSpace, W - 6, H - 22, 1.5, "right");                                                  // SPACE walks on (or finishes)
+    if (!hidden) lightLabel(CONFIG.ui.promptSpace, W - 6, H - 22, 1.5, "right");                                    // ENTER walks on (or finishes); while the next stop is hidden, ENTER reveals it first
   }
 }
 

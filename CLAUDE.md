@@ -357,3 +357,10 @@ Each card shows a "PRESS SPACE" label. F opens/advances the same way, B steps ba
 Globe labels: Shanghai: "Shanghai: my mom's home"; Munich: "Munich: my partner's home"
 
 - The Teamwork tower is now 8 s (was 11).
+
+## Enter is now the one action key (overrides the Space/Enter split described above)
+
+- **Enter** (`enterForward`) does everything Space used to do and everything Enter did: start, walk on, open a card, attack on a boss card, start each beat, use the hand sanitizer and reveal the answer on the High School card, zoom the globe in / visit the next city / zoom out, step through the three "Why Hilti" cards and their locks, go to the next screen, close a card, finish. On the map, while the next stop is a hidden mystery, Enter reveals it first and the next Enter walks on. It still waits for the text to finish typing, does nothing while the tower build runs by itself (F skips a tower, P pauses), and waits for the globe to finish zooming. On the end screen Enter reopens the previous card, as before.
+- Every prompt now reads "PRESS ENTER" (`CONFIG.ui.promptSpace` and `promptEnter` are both "PRESS ENTER"; the title says "PRESS ENTER TO BEGIN"; the build's last line says "Press Enter to continue."). The controls bar reads "ENTER: NEXT / ATTACK / USE" and "R RESET  M MUSIC". The map shows only "PRESS ENTER TO REVEAL" while the next stop is hidden.
+- Space, Right arrow and Page Down still work as an unadvertised alias of the old Space behaviour (`advance`), e.g. for a clicker. F, B, P, S, R, M, C and Backspace are unchanged.
+- Tool presentations are about 20% quicker (`toolTimes`: gap 2.7 s, pop 0.75, show 1.75, tray 0.65, hold 0.45, fly 0.75).
