@@ -91,9 +91,9 @@ const CONFIG = {
       finale: {                                                          // the castle sequence: towers -> globe -> steps -> hat + toolkit
         values: ["Teamwork", "Commitment", "Integrity", "Courage"],      // the four towers, in the order they are built
         build: {                                                         // the build sequence: one Space starts it, then the four towers go up on their own
-          gap: 1,                                                        // seconds of dark between towers
+          gap: 0.7,                                                      // seconds of dark between towers
           towers: [                                                      // caption (under about 12 words) and how long each tower takes, in seconds
-            { name: "Teamwork",   secs: 8, caption: "Teamwork: we build it together." },
+            { name: "Teamwork",   secs: 5, caption: "Teamwork: we build it together." },
             { name: "Commitment", secs: 18, caption: "Commitment: Keeping everyone accountable" },
             { name: "Integrity",  secs: 11, caption: "Integrity: Own it, Fix it" },
             { name: "Courage",    secs: 16, caption: "Courage: To build differently" }
@@ -112,9 +112,9 @@ const CONFIG = {
           { name: "MUNICH",   lat: 48.1, lon: 11.6,  label: "Munich: my partner's home", photo: "hilti_munich.jpeg" }
         ],
         zoomIn: "PRESS ENTER TO ZOOM IN.", cont: "PRESS ENTER TO CONTINUE.",
-        steps: ["Now: Outperformer Program",
-                "In two years: account development, growing global accounts",
-                "Further out: national or regional account executive"],
+        steps: ["Now: Outperformer program, strategy and sales",
+                "In two years: account development and regional growth",
+                "Further out: National or Regional account executive"],
         quote: "Travel is the best educator.", done: "Toolkit complete.", congrats: "CONGRATULATIONS!!",
         twist: "Or is it?", closing: "Looking forward to a career of building my toolkit with", logo: "hilti_logo.jpeg"      // the logo image ends the sentence
       } }
@@ -281,7 +281,7 @@ const ADV = ch => (FONT[ch] ? FONT[ch].w : 5) + 1;   // advance = glyph width + 
 const fs = s => (s <= 0.7 ? s : s <= 1.1 ? 0.75 : s <= 1.6 ? 1 : s <= 2.2 ? 1.25 : s <= 3.2 ? 2 : 3);
 function textW(str, s) { let n = 0; for (let i = 0; i < str.length; i++) n += ADV(str[i]); return n ? (n - 1) * fs(s) : 0; }
 
-const TYPE = { on: false, t: 0, cursor: 0, cps: 25, pause: 0.8, delay: 0.3 };   // typewriter: slow, with a pause after every line so the room can read along
+const TYPE = { on: false, t: 0, cursor: 0, cps: 25, pause: 0.35, redPause: 0.8, delay: 0.08 };   // typewriter: a short pause after every line; the red prompt row keeps the longer original pause (redPause) before it
 function typeStart(key) {                            // begin (or continue) typing the text screen `key`; text() then reveals each line in turn
   const c = card;
   if (c.tkey !== key) { c.tkey = key; c.tt = 0; }
@@ -692,7 +692,7 @@ function advance() {                          // SPACE (or a click): next / atta
 }
 function finaleTimes() {                      // seconds into the last finale screen
   if (reduceMotion) return { land: 0, lights: 0, gap: 0, quote: 0, done: 0 };
-  const land = 1.1, lights = land + 0.4, gap = 0.28;
+  const land = 0.9, lights = land + 0.3, gap = 0.24;
   return { land, lights, gap, quote: land, done: lights + 7 * gap + 0.2 };
 }
 function goBack() {
@@ -2158,7 +2158,7 @@ function drawGlobeZoom(F) {                          // the camera zooms in: the
 }
 /* ---- the dark finale (card.stage 4): the screen goes black, "CONGRATULATIONS!!" and "Toolkit complete." appear, then "Or is it?" fades in slowly
    and the last line types out ---- */
-const OUTRO = { dark: 1.0, congrats: 1.2, complete: 2.8, twist: 5.6, twistFade: 1.6, closing: 8.0, logoGap: 0.5, logoFade: 0.9 };     // seconds into stage 4
+const OUTRO = { dark: 0.7, congrats: 0.8, complete: 2.0, twist: 3.4, twistFade: 1.1, closing: 5.0, logoGap: 0.4, logoFade: 0.8 };     // seconds into stage 4
 function sfxSting(kind) {                            // a bright fanfare for the congratulations, a low uneasy drone for the twist
   const ac = MUSIC.ac;
   if (!ac || !MUSIC.master) return;
@@ -2209,7 +2209,7 @@ function drawOutro(F) {
   if (c.tdone) promptTab(CONFIG.ui.promptSpace, W / 2, 194);
 }
 /* ---- "IMPORTANT DECISION": a big glowing banner across the screen between the germ and the question on the High School card ---- */
-const DECISION = { important: 0.45, decision: 1.0, out: 3.0, question: 3.7 };         // seconds after the germ is gone
+const DECISION = { important: 0.3, decision: 0.65, out: 2.1, question: 2.7 };         // seconds after the germ is gone
 function drawDecision(t, flag) { drawBanner(t, { w1: "IMPORTANT", w2: "DECISION", sting: "decision", flag: flag || "dec1", out: DECISION.out, end: DECISION.question, glow: "210,5,30", c1: "#ffd95e", s1: "#7a0f1c", c2: "#ffffff", s2: "#d2051e", t1: DECISION.important, t2: DECISION.decision }); }
 function drawBanner(t, o) {                          // a full-screen glowing two-word banner (used for IMPORTANT DECISION and PROUDEST ACHIEVEMENT)
   const c = card, k = (a, b) => Math.max(0, Math.min(1, (t - a) / b));
@@ -2228,7 +2228,7 @@ function drawBanner(t, o) {                          // a full-screen glowing tw
   ctx.globalAlpha = 1;
 }
 /* ---- the career-milestone award (Undergrad): after the tools land a gold medal pops up with its title, then the company logo, pixelated, stands where the boss was ---- */
-const AWARD = { start: 3.2, pop: 0.55, hold: 2.5, out: 0.45, logoAt: 6.2, logoPop: 0.5, done: 7.0 };    // seconds after the last tool lands
+const AWARD = { start: 3.2, pop: 0.45, hold: 1.5, out: 0.35, logoAt: 5.4, logoPop: 0.4, done: 5.8 };    // seconds after the last tool lands
 const PIXLOGO = {};
 function pixelLogo(src, wPx, color) {                // a logo (even a transparent SVG or a JPEG on white) as a small hard-pixel canvas, cropped to its content
   const key = src + "@" + wPx + (color ? "c" : "");
@@ -2342,26 +2342,27 @@ function bdTowerTop(done, N, rh, x0, w) {              // battlements, a golden 
   rect(BD.TX - 8, BD.GY - 22, 16, 22, "#1b1426"); rect(BD.TX - 7, BD.GY - 21, 14, 21, "#4a3322");
   rect(BD.TX + 20, top + 14, 5, 12, "#1b1426"); rect(BD.TX + 21, top + 15, 3, 10, "#ffe27a"); rect(BD.TX - 25, top + 14, 5, 12, "#1b1426"); rect(BD.TX - 24, top + 15, 3, 10, "#ffe27a");
 }
-function bdTeamwork(p) {                               // 1. Teamwork: a line of three passes bricks up to the tower and each lays a row
-  const N = 12, TX = BD.TX, GY = BD.GY, x0 = TX - 28, rh = 9, rowsF = cl((p - 0.04) / 0.92) * N, k = Math.min(N - 1, Math.floor(rowsF)), u = rowsF - k, full = Math.floor(rowsF + 1e-6);
-  const ORD = [["hero", "rankin", "athean"], ["athean", "hero", "rankin"], ["rankin", "athean", "hero"]], XS = [212, 156, 100];
-  const ph = Math.min(2, Math.floor(k / 4)), within = k - ph * 4 + u;
-  const pos = id => {                                   // slot x for a character, sliding from the previous slot right after a change of front
+function bdTeamwork(p) {                               // 1. Teamwork: three quick passes, one brick each, along a line of three; each brick that reaches the tower adds a section of rows
+  const N = 12, TX = BD.TX, GY = BD.GY, x0 = TX - 28, rh = 9, T3 = cl((p - 0.03) / 0.93) * 3, ph = Math.min(2, Math.floor(T3)), u = T3 - ph;
+  const full = Math.min(N, ph * 4 + (u > 0.85 ? Math.min(4, Math.floor((u - 0.85) / 0.15 * 4 + 0.001)) : 0));
+  const ORD = [["hero", "rankin", "athean"], ["athean", "hero", "rankin"], ["rankin", "athean", "hero"]], XS = [212, 156, 100];   // back of the line .. front; each pass starts from someone else
+  const pos = id => {                                   // slot x for a character, sliding from the previous slot at the start of a pass
     const slot = ORD[ph].indexOf(id), x = XS[slot];
-    if (ph > 0 && within < 0.5 && p < 0.99) { const ps = ORD[ph - 1].indexOf(id); return lp(XS[ps], x, ez(within / 0.5)); }
+    if (ph > 0 && u < 0.25 && p < 0.99) { const ps = ORD[ph - 1].indexOf(id); return lp(XS[ps], x, ez(u / 0.25)); }
     return x;
   };
   bdBrickTower(Math.min(N, full), 0, N, rh, x0, 56);
   bdTowerTop(full >= N, N, rh, x0, 56);
   [2, 1, 0].forEach(sl => { const id = ORD[ph][sl]; bdChar(id, pos(id), GY, {}); });
-  if (full < N && p < 0.995) {                          // the brick in flight: back -> middle -> front -> the tower
-    const hx = i => pos(ORD[ph][i]) + 14, hy = GY - 25, ty = GY - (k + 1) * rh + 4;
+  if (T3 < 3 && p < 0.995) {                            // the one brick of this pass: back -> middle -> front -> the tower
+    const hx = i => pos(ORD[ph][i]) + 14, hy = GY - 25, ty = GY - (ph * 4 + 1) * rh + 4;
     let bx, by;
-    if (u < 0.33) { const f = u / 0.33; bx = lp(hx(2), hx(1), f); by = hy - Math.sin(f * Math.PI) * 10; }
-    else if (u < 0.66) { const f = (u - 0.33) / 0.33; bx = lp(hx(1), hx(0), f); by = hy - Math.sin(f * Math.PI) * 10; }
-    else { const f = (u - 0.66) / 0.34; bx = lp(hx(0), x0 + 28, ez(f)); by = lp(hy, ty, ez(f)) - Math.sin(f * Math.PI) * 14; }
-    bdBrick(bx, by);
-    bdBrickTower(full, cl((u - 0.8) / 0.2), N, rh, x0, 56);
+    if (u < 0.25) { bx = hx(2); by = hy; }
+    else if (u < 0.5) { const f = (u - 0.25) / 0.25; bx = lp(hx(2), hx(1), f); by = hy - Math.sin(f * Math.PI) * 10; }
+    else if (u < 0.75) { const f = (u - 0.5) / 0.25; bx = lp(hx(1), hx(0), f); by = hy - Math.sin(f * Math.PI) * 10; }
+    else if (u < 0.88) { const f = (u - 0.75) / 0.13; bx = lp(hx(0), x0 + 28, ez(f)); by = lp(hy, ty, ez(f)) - Math.sin(f * Math.PI) * 14; }
+    else { bx = -99; by = -99; }
+    if (bx > 0) bdBrick(bx, by);
   }
   if (!reduceMotion && full !== (bdGlobal.rows1 || 0)) { bdGlobal.rows1 = full; if (full > 0) bdTick("tick"); }
 }
@@ -2892,6 +2893,7 @@ function drawRowList(rows, x, y0, step, accent, bs, col2) {   // rows top to bot
   const ink = "#1b1426";
   let yy = y0, ri = 0;
   while (ri < rows.length) {
+    if (ri === accent && TYPE.on) TYPE.cursor += TYPE.redPause - TYPE.pause;                // the red "press enter" row waits the original, longer beat
     if (!/^\s*- /.test(rows[ri])) { text(rows[ri], x, yy, 1.5, ri === accent ? "#b01428" : ink, "left"); yy += step; ri++; continue; }
     const run = [];
     while (ri < rows.length && /^\s*- /.test(rows[ri])) run.push(/^\s*- (.*)$/.exec(rows[ri++])[1]);
@@ -3050,7 +3052,7 @@ function drawCard() {
       let ok = c.t >= landed + 0.2;
       if (cur === "medal" || cur === "proud") ok = ok && uCur >= AWARD.start + AWARD.pop + AWARD.hold + AWARD.out + 0.2;     // the medal has popped up, held and gone
       else if (cur === "logo") ok = ok && uCur >= 0.6;
-      else if (cur === "decide") ok = ok && uCur >= 4.3;
+      else if (cur === "decide") ok = ok && uCur >= 3.4;
       c.tdone = c.tdone && ok;
     }
   } else if (st.finale) {                                    // the Hilti finale: each screen has its own text, all from the config
@@ -3198,7 +3200,7 @@ function plaqueNow(c, st) {                          // which plaque stands wher
     if (id === "logo") res = { kind: "logo", cfg: st.award, t0: 0, u };
     else if (id === "tech10") res = { kind: "logo", cfg: S0.proud, t0: 0, u };                                 // the Tech 10 award is introduced first; the medal comes after
     else if (id === "next") res = { kind: "q", t0: 0, u };
-    else if (id === "decide" && u >= 3.5) res = { kind: "logo", cfg: S0.decide, t0: 3.5, u };
+    else if (id === "decide" && u >= 2.7) res = { kind: "logo", cfg: S0.decide, t0: 2.7, u };
   }
   return res;
 }
@@ -3245,9 +3247,9 @@ function drawIntro() {
     const sx0 = 10 + ((i * 89) % (W - 20)), sy0 = 8 + ((i * 47) % 70), tw = reduceMotion ? 1 : Math.max(0, Math.sin(timeNow * 1.6 + i * 2.1));
     if (tw > 0.35) { ctx.globalAlpha = tw; rect(sx0, sy0, 1, 1, "#fff6c8"); ctx.globalAlpha = 1; }
   }
-  TYPE.on = !reduceMotion; TYPE.t = t; TYPE.cursor = 0.5;
+  TYPE.on = !reduceMotion; TYPE.t = t; TYPE.cursor = 0.2;
   text(CONFIG.objective, W / 2, 40, 2, "#ffd95e", "center", "#5a3a00");            // "Objective:" first, then the mission line
-  TYPE.cursor += 0.3;
+  TYPE.cursor += 0.15;
   const lines = wrap(CONFIG.mission, 21);
   lines.forEach((l, j) => text(l, W / 2, 62 + j * 20, 3, "#ffffff", "center", "#7a0f1c"));
   const typedAt = TYPE.cursor - TYPE.pause;
