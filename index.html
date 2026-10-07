@@ -61,7 +61,7 @@ const CONFIG = {
                  perks: ["Team culture", "Top 25 women's golf team", "Vibrant college town", "Full-ride scholarship"] },
       award: { title: "CAREER MILESTONE", logo: "the_hartford_logo.svg",
                text: "Chelsea joins the Surety Bond team at The Hartford as a Summer Underwriting Analyst" },
-      beats: ["award", "proud", "next", "liked", "grad", "decide"],      // after the tools land, each Space moves to the next beat (the Hartford award, the proudest achievement, the "what next?" questions...)
+      beats: ["logo", "medal", "tech10", "proud", "next", "liked", "grad", "decide"],      // after the tools land, each Space moves to the next beat (the Hartford award, the proudest achievement, the "what next?" questions...)
       story: {
         proud: { title: "PROUDEST ACHIEVEMENT", logo: "tech10_logo.svg", color: true, w: 48, q: 1,
                  text: "Awarded to 10 graduating seniors that embody the four principles of Red Raider Spirit",
@@ -80,6 +80,7 @@ const CONFIG = {
       tools: ["glasses", { tool: "shield", note: "Leadership development certificate" }] },
 
     { title: "MASKED RIDER CAPITAL",
+      pre: { logo: "masked_rider_capital_logo.jpeg", color: true, text: "Chelsea joins the investment team at Masked Rider Capital as a Summer Analyst" },      // the stop opens with this, then Space brings the twister in
       award: { title: "CAREER MILESTONE", logo: "masked_rider_capital_logo.jpeg", color: true, text: "I \u2665 cash flows" },
       boss: "THE ROLL-UP TWISTER", line: "Oh no! A 5-company roll-up acquisition is headed your way.\nWeapon: Excel.", toolkit: "Financial modeling, private markets.",
       art: "office", tools: ["excel"], sprite: "tornado", weapon: "excel" },
@@ -591,7 +592,7 @@ function openCard(i) {
   const st = STOPS[i];
   revealed[i] = true;
   card = { i: i, anim: 0, t: 0, st: 0, g: st.finale ? newGlobe() : null, phase: st.battle && !won[i] ? 0 : 2, hits: 0, atk: -1, fade: -1,
-           stage: st.script && STOPS[i + 1] && !isMystery(STOPS[i + 1]) ? 1 : 0 };      // stage: scripted cards ask a question (0), then reveal the answer (1)   // phases: 0 intro, 1 fight (3 attacks, then fade), 2 won
+           stage: st.script && STOPS[i + 1] && !isMystery(STOPS[i + 1]) ? 1 : 0, pre: !!(st.pre && st.battle && !won[i]) };      // pre: the stop opens with its company logo and a line, before the boss comes in      // stage: scripted cards ask a question (0), then reveal the answer (1)   // phases: 0 intro, 1 fight (3 attacks, then fade), 2 won
   state = S.CARD;
   if (st.tools.length && !st.battle) burst(st.x, st.y - 6, "#f2b705", 14);
 }
@@ -650,6 +651,7 @@ function advance() {                          // SPACE (or a click): next / atta
     if (!card.tdone) return;                                         // keys wait until all of the card's text has finished typing (no accidental skips)
     card.tdone = false;                                              // redrawn next frame; a key press in the same instant is ignored
     const st = STOPS[card.i];
+    if (card.pre) { card.pre = false; card.entT0 = card.t; return; }                  // the first Space after the opening line brings the boss in
     const bl = beatsOf(st);
     if (st.battle && card.phase === 2 && bl.length && (card.bt ? card.bt.length : 0) < bl.length) { (card.bt = card.bt || []).push(card.t); return; }      // each Space after the tools starts the next beat
     if (st.finale) {                                                 // castle finale: Space steps through towers -> globe -> steps -> hat + toolkit
@@ -2314,7 +2316,8 @@ function drawCard() {
   let powerFx = null;                                        // drawn after the scene clip so it can start up in the toolkit bar
   if (bt && ph < 2) {                                        // the boss, large on the right, with its health bar above it
     const T = atkTimes(), cx = sx + sw - 84, draw = BOSS_DRAW[bt.sprite] || drawAlarmBoss, atk = c.atk, fading = c.fade >= 0;
-    const alpha = fading ? Math.max(0, 1 - c.fade / T.fade) : 1;                      // the defeated boss fades out
+    const preOn = !!c.pre, entA = preOn ? 0 : (c.entT0 == null || reduceMotion ? 1 : Math.max(0, Math.min(1, (c.t - c.entT0) / 0.9)));   // the boss comes in after the opening logo
+    const alpha = (fading ? Math.max(0, 1 - c.fade / T.fade) : 1) * entA, bossX = cx + Math.round((1 - entA) * 36);                      // the defeated boss fades out
     const hitOn = atk >= T.hit && atk < T.hit + 0.25;                                 // one steady white tint (no strobing) as the blow lands
     const shake = hitOn && !reduceMotion ? Math.round(Math.sin(atk * 70) * 4) : 0;
     let hp;                                                                           // each blow takes a third off
@@ -2323,15 +2326,31 @@ function drawCard() {
     else hp = 1 - c.hits / hitsNeeded();
     hp = Math.max(0, hp);
     ctx.globalAlpha = alpha;
-    ell(cx, gy + 1, 30, 3, "rgba(0,0,0,0.35)");
-    if (hitOn) tinted("#ffffff", () => draw(cx + shake, gy)); else draw(cx + shake, gy);
+    if (entA > 0) {
+    ell(bossX, gy + 1, 30, 3, "rgba(0,0,0,0.35)");
+    if (hitOn) tinted("#ffffff", () => draw(bossX + shake, gy)); else draw(bossX + shake, gy);
     const nmw = Math.round(textW(bt.boss, 1)), pw0 = Math.max(54, nmw + 8), ph0 = 14;       // small light panel in the sky to the left of the boss, so it never covers the boss
     const px0 = Math.max(sx + 3, Math.round(cx - 50 - pw0)), py0 = sy + 2, bw0 = pw0 - 8;
     rect(px0 - 1, py0 - 1, pw0 + 2, ph0 + 2, "#1b1426"); rect(px0, py0, pw0, ph0, "#f4f1e6");
     text(bt.boss, px0 + pw0 / 2, py0 + 1, 1, "#1b1426", "center");
     rect(px0 + 3, py0 + 8, bw0 + 2, 4, "#1b1426"); rect(px0 + 4, py0 + 9, bw0, 2, "#c9c4b4");
     rect(px0 + 4, py0 + 9, Math.round(bw0 * hp), 2, hp > 0.5 ? "#2f9e4f" : hp > 0.2 ? "#f2b705" : "#d2051e");
+    }
     ctx.globalAlpha = 1;
+    if (st.pre) {                                                                       // the opening company logo, where the boss will stand
+      const lgp = pixelLogo(st.pre.logo, st.pre.w || 88, st.pre.color), ez = p => p * p * (3 - 2 * p);
+      let ps = 1, pa = 1;
+      if (preOn) { if (!reduceMotion) { const p = Math.min(1, c.t / 0.6); ps = 0.5 + 0.62 * ez(p) - (p >= 1 ? 0.12 * Math.min(1, (c.t - 0.6) * 6) : 0); pa = Math.min(1, p * 2); } }
+      else if (c.entT0 != null && !reduceMotion && c.t - c.entT0 < 0.5) { const p = (c.t - c.entT0) / 0.5; ps = 1 - 0.4 * p; pa = 1 - p; }
+      else pa = 0;
+      if (lgp && pa > 0) {
+        const pw = lgp.width + 12, ph = lgp.height + 12, py = gy + 3 - ph;
+        ctx.save(); ctx.translate(cx, py + ph); ctx.scale(ps, ps); ctx.globalAlpha = pa;
+        rect(-pw / 2 - 1, -ph - 1, pw + 2, ph + 2, "#1b1426"); rect(-pw / 2, -ph, pw, ph, "#f4f1e6"); frame(-pw / 2 + 2, -ph + 2, pw - 4, ph - 4, 1, "#c4b79a");
+        ctx.imageSmoothingEnabled = false; ctx.drawImage(lgp, -lgp.width / 2, -ph + 6, lgp.width, lgp.height);
+        ctx.restore(); ctx.globalAlpha = 1;
+      }
+    }
     const wk = bt.weapon, melee = wk === "club", fx = !reduceMotion && atk >= 0;
     const lunge = fx ? Math.round(Math.sin(Math.min(1, atk / (T.hit + 0.15)) * Math.PI) * (melee ? 14 : 5)) : 0;
     drawParty(sx + 28, gy, false, null, lunge, st.party === "beside");
@@ -2340,7 +2359,7 @@ function drawCard() {
     if (wk === "sanitizer") {                                // scripted prop: appears in her hand when Enter is pressed, gone once the germ is
       if (ph === 1) drawSanitizerProp(hx, hy, atk, T, cx - 18, gy - 40, fx);
     } else if (wk) {                                         // the hero uses the stop's tool: club = swung, others = thrown
-      if (ph === 0 && !melee) toolArt(wk, sx + 38, sy + 4 + (reduceMotion ? 0 : Math.round(Math.sin(timeNow * 3))), 0.95);
+      if (ph === 0 && !melee && !preOn) toolArt(wk, sx + 38, sy + 4 + (reduceMotion ? 0 : Math.round(Math.sin(timeNow * 3))), 0.95);
       if (fx && melee && atk > 0.05 && atk < T.hit + 0.2) {
         const p = Math.min(1, (atk - 0.05) / (T.hit - 0.05)), ang = (-140 + 170 * p) * Math.PI / 180;
         for (let k = 1; k <= 5; k++) { const a2 = ang - k * 0.1; rect(hx + Math.cos(a2) * 40, hy + Math.sin(a2) * 40, 3, 3, "rgba(255,255,255," + (0.65 - k * 0.11).toFixed(2) + ")"); }
@@ -2369,7 +2388,7 @@ function drawCard() {
     const hatDrop = st.finale && c.stage === 3 && !won[card.i] ? [{ tool: "hat", p: Math.min(0.999, Math.max(0.001, c.st / finaleTimes().land)) }] : null;   // the hard hat falls onto her head
     drawParty(sx + 28, gy, !!bt && !st.script, hatDrop, 0, st.party === "beside");
     if (!bt && !st.finale) { const n = st.tools.length; st.tools.forEach((k, i) => toolTile(k, sx + sw - 12 - (n - i) * 28 + 4, sy + 52)); }
-    const awardUp = st.award && c.bt && c.bt.length && au(c, 0) >= AWARD.start;                                 // once the award appears, the banners make room for it
+    const awardUp = st.award && c.bt && c.bt.length > 0;                                 // once the award appears, the banners make room for it
     if (bt && !st.script && !awardUp) {
       lightLabel(CONFIG.ui.victory, sx + sw - 8, sy + 3, 2, "right", "#b01428");          // top right, clear of the tool showcase in the middle
       if (st.team && c.t >= sch[sch.length - 1].at + toolDone()) lightLabel(st.team + " " + CONFIG.ui.joined, sx + sw - 8, sy + 28, 1.5, "right");
@@ -2396,11 +2415,11 @@ function drawCard() {
     const note = sch.find(r => r.note && c.t >= r.at - 2 && c.t < r.at + T.pop);
     const nb = c.bt ? c.bt.length : 0, ids = beatsOf(st), cur = nb ? ids[nb - 1] : null, S0 = st.story || {}, uCur = nb ? beatU(c, st, nb - 1) : -1;
     let rows = null, rkey = null, trayOn = true;                                             // later beats replace the tray and the skills line with their own text
-    if (cur === "proud" && uCur >= AWARD.logoAt) { rows = [...wrap(S0.proud.text, 40), ...S0.proud.bullets.map(b => "- " + b)]; rkey = "vproud"; trayOn = false; }
+    if (cur === "tech10" || cur === "proud") { rows = [...wrap(S0.proud.text, 40), ...S0.proud.bullets.map(b => "- " + b)]; rkey = "vproud"; trayOn = false; }
     else if (cur === "next") { rows = [S0.next.text, ...S0.next.options.map(o => "- " + o)]; rkey = "vnext"; trayOn = false; }
     else if (cur === "liked") { rows = wrap(S0.liked, 40); rkey = "vliked"; trayOn = false; }
     else if (cur === "grad" || cur === "decide") { rows = S0.grad.slice(); rkey = "vgrad"; trayOn = false; }
-    const capt = st.award && st.award.text && ((cur === "award" && uCur >= AWARD.logoAt) || (cur === "proud" && uCur < AWARD.logoAt));      // an award stop swaps the skills line for its caption once the logo stands
+    const capt = st.award && st.award.text && (cur === "logo" || cur === "medal");      // an award stop swaps the skills line for its caption once the logo stands
     line = note ? note.note : c.t >= landed ? (capt ? st.award.text : CONFIG.ui.toolkit + ": " + st.toolkit) : "";      // the skills line waits until every tool is in the bar
     if (trayOn) sch.forEach((r, i) => {
       const sp = traySlot(i, n, tbx, tbw, ty), u = c.t - r.at, x0 = sp.cx - sp.w / 2 + 3;
@@ -2410,11 +2429,12 @@ function drawCard() {
       if (arrived && u < T.pop + T.show + T.tray + T.hold) toolArt(r.tool, sp.cx - 7, sp.cy - 8, 0.6);
       else if (gone) spr(SPR_CHECK, sp.cx - 3, sp.cy - 3, 1, false, "#1d8f4a");
     });
-    if (rows) { typeStart(rkey); drawRowList(rows, x + 10, ty + 6, 12, -1, cur === "proud" ? 1 : 1.5, 146); typeEnd(); }
+    if (rows) { typeStart(rkey); drawRowList(rows, x + 10, ty + 6, 12, -1, cur === "proud" || cur === "tech10" ? 1 : 1.5, 146); typeEnd(); }
     else { typeStart("v" + line); wrap(line, 40).slice(0, 2).forEach((l, j) => text(l, x + 10, ty + 32 + j * 12, 1.5, ink, "left")); typeEnd(); }
     if (!reduceMotion) {                                                                      // keys wait for the tools, the typing and any running award / banner
       let ok = c.t >= landed + 0.2;
-      if (nb && (cur === "award" || cur === "proud")) ok = ok && uCur >= AWARD.done;
+      if (cur === "medal" || cur === "proud") ok = ok && uCur >= AWARD.start + AWARD.pop + AWARD.hold + AWARD.out + 0.2;     // the medal has popped up, held and gone
+      else if (cur === "logo") ok = ok && uCur >= 0.6;
       else if (cur === "decide") ok = ok && uCur >= 4.3;
       c.tdone = c.tdone && ok;
     }
@@ -2452,7 +2472,8 @@ function drawCard() {
       else if (c.stage === 0) { rows = c.phase === 2 ? [CONFIG.ui.ask, CONFIG.ui.reveal] : []; accent = 1; }      // the question waits for the germ to be gone and the big decision banner
       else rows = [(nxs && nxs.mystery ? nxs.mystery.label : "NEXT") + ".", ...(nxs && nxs.mystery ? [...(nxs.mystery.perks || []).map(q => "- " + q), CONFIG.ui.wreck] : [])];   // the answer, what drew her there, then the Red Raider cheer
     }
-    typeStart("r" + (st.script ? c.phase : c.phase === 2 ? 2 : 0) + "|" + c.stage);
+    if (c.pre && st.pre) rows = wrap(st.pre.text, 40);                                 // the opening line, before the boss comes in
+    typeStart("r" + (st.script ? c.phase : c.phase === 2 ? 2 : 0) + "|" + c.stage + (c.pre ? "pre" : ""));
     if (st.script && c.stage === 0 && c.phase === 2) TYPE.cursor = DECISION.question;                  // the question types after the banner
     const step = 12;                                                                      // rows go top to bottom in order; a run of 3+ bullets sits in two equal columns
     drawRowList(rows, x + 10, ty + 6, 12, accent, 1.5, 168);
@@ -2499,19 +2520,21 @@ function drawCard() {
   if (bt && c.phase === 2 && c.bt && c.bt.length) {          // the beats after the tools: medals, plaques, the grey question mark
     const ids = beatsOf(st), S0 = st.story || {}, ease = p => p * p * (3 - 2 * p), clamp = v => Math.max(0, Math.min(1, v));
     const mx = sx + sw / 2 + 6, my = sy + 32, bx = sx + sw - 84;
+    const late = [];                                           // medals are drawn after the plaque so nothing covers them
     ids.forEach((id, k) => {                                  // a medal pops up for each award beat
-      if (k >= c.bt.length || (id !== "award" && id !== "proud")) return;
+      if (k >= c.bt.length || (id !== "medal" && id !== "proud")) return;
       const u = au(c, k), big = id === "proud", title = big ? S0.proud.title : st.award.title, fl = "bs" + k;
-      if (u >= AWARD.start && u < AWARD.logoAt + 0.2 && !c[fl]) { c[fl] = true; sfxSting(big ? "proud" : "award"); flash = big ? 0.3 : 0.15; }
-      const pu = (u - AWARD.start) / AWARD.pop, popK = (pu < 0 ? 0 : pu < 1 ? 1.12 * ease(pu) : 1 + 0.12 * Math.max(0, 1 - (u - AWARD.start - AWARD.pop) * 6)) * (big ? 1.2 : 1);
+      if (u >= AWARD.start && u < AWARD.start + 1 && !c[fl]) { c[fl] = true; sfxSting(big ? "proud" : "award"); flash = big ? 0.3 : 0.15; }
+      const pu = (u - AWARD.start) / AWARD.pop, popK = (pu < 0 ? 0 : pu < 1 ? 1.12 * ease(pu) : 1 + 0.12 * Math.max(0, 1 - (u - AWARD.start - AWARD.pop) * 6)) * (big ? 1.05 : 1);
       const outP = clamp((u - AWARD.start - AWARD.pop - AWARD.hold) / AWARD.out);
-      if (u >= AWARD.start && outP < 1) {
+      const drawIt = () => { if (u >= AWARD.start && outP < 1) {
         ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
         if (big) { ctx.fillStyle = "rgba(8,6,18," + (0.55 * (1 - outP) * clamp((u - AWARD.start) / 0.4)).toFixed(3) + ")"; ctx.fillRect(sx, sy, sw, sh); }      // the proudest achievement dims the whole scene
         for (let q = 0; q < 12; q++) { ctx.save(); ctx.translate(mx, my + 8); ctx.rotate(q * Math.PI / 6 + (reduceMotion ? 0 : timeNow * 0.6)); ctx.fillStyle = "rgba(255,217,94," + ((big ? 0.3 : 0.2) * (1 - outP)).toFixed(3) + ")"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(big ? 110 : 80, -8); ctx.lineTo(big ? 110 : 80, 8); ctx.closePath(); ctx.fill(); ctx.restore(); }
         ctx.restore();
-        ctx.globalAlpha = 1 - outP; drawMedal(mx, my + 8 - outP * 10, popK * (1 - 0.35 * outP), title); ctx.globalAlpha = 1;
-      }
+        ctx.globalAlpha = 1 - outP; drawMedal(mx, my + (big ? 0 : 8) - outP * 10, popK * (1 - 0.35 * outP), title); ctx.globalAlpha = 1;
+      } };
+      late.push(drawIt);                                      // medals are drawn last, over the plaque
     });
     const pl = plaqueNow(c, st);                              // and one plaque stands where the boss was
     if (pl) {
@@ -2529,6 +2552,7 @@ function drawCard() {
       }
       ctx.restore(); ctx.globalAlpha = 1;
     }
+    late.forEach(f => f());
   }
   if (st.finale && c.stage === 1) drawGlobeZoom(st.finale);   // the zoomed-in globe covers the whole screen
   if (st.finale && c.stage === 4) drawOutro(st.finale);       // so does the dark finale
@@ -2547,18 +2571,18 @@ function toolTimes() {                      // each tool: pops out of the boss -
 }
 function toolDone() { const T = toolTimes(); return T.pop + T.show + T.tray + T.hold + T.fly; }     // seconds until a tool counts as in the toolkit bar
 /* ---- beats: after the tools land, a stop can have a chain of beats; the presenter's Space starts each one (card.bt = the card clock when each started) ---- */
-const beatsOf = st => st.beats || (st.award ? ["award"] : []);
+const beatsOf = st => st.beats || (st.award ? ["logo", "medal"] : []);       // the company logo and its line first, then the career-milestone medal
 const au = (c, k) => (c.bt && c.bt[k] != null ? (reduceMotion ? 99 : c.t - c.bt[k] + AWARD.start) : -1);   // medal beats run on the AWARD clock (the medal pops at AWARD.start)
 const bu = (c, k) => (c.bt && c.bt[k] != null ? (reduceMotion ? 99 : c.t - c.bt[k]) : -1);                 // other beats start at 0
-const beatU = (c, st, k) => { const id = beatsOf(st)[k]; return id === "award" || id === "proud" ? au(c, k) : bu(c, k); };
+const beatU = (c, st, k) => { const id = beatsOf(st)[k]; return id === "medal" || id === "proud" ? au(c, k) : bu(c, k); };
 function awardU(c, st) { return st.award ? au(c, 0) : -1; }
 function plaqueNow(c, st) {                          // which plaque stands where the boss was, given the beats started so far
   const ids = beatsOf(st), n = c.bt ? c.bt.length : 0, S0 = st.story || {};
   let res = null;
   for (let k = 0; k < n; k++) {
     const id = ids[k], u = beatU(c, st, k);
-    if (id === "award" && u >= AWARD.logoAt) res = { kind: "logo", cfg: st.award, t0: AWARD.logoAt, u };
-    else if (id === "proud" && u >= AWARD.logoAt) res = { kind: "logo", cfg: S0.proud, t0: AWARD.logoAt, u };
+    if (id === "logo") res = { kind: "logo", cfg: st.award, t0: 0, u };
+    else if (id === "tech10") res = { kind: "logo", cfg: S0.proud, t0: 0, u };                                 // the Tech 10 award is introduced first; the medal comes after
     else if (id === "next") res = { kind: "q", t0: 0, u };
     else if (id === "decide" && u >= 3.5) res = { kind: "logo", cfg: S0.decide, t0: 3.5, u };
   }
