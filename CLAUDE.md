@@ -44,7 +44,7 @@ Hilti = the hard hat (dropped by the castle finale, below).
   before the thrown heart leaves her hand (reduced motion: a steady glow, no streaming). Winning drops the glasses (they appear on her face + in the toolkit bar), then the card line
   "LEADERSHIP DEVELOPMENT CERTIFICATE" shows and the shield drops (on her arm + in the toolkit bar). The boss is FINALS (`tools` entries can be
   `{ tool, note }`; the note appears ~0.9s before that tool drops, see `dropSchedule`).
-- Masked Rider Capital: boss THE ROLL-UP TWISTER (small tornado, `sprite: "tornado"`, drawn at scale 3). Card: "Oh no! A 5-company acquisition roll-up is headed your way." then "Weapon: Excel." and toolkit
+- Masked Rider Capital: boss THE ROLL-UP TWISTER (small tornado, `sprite: "tornado"`, drawn at scale 3). Card: "Oh no! A 5-company roll-up acquisition is headed your way." then "Weapon: Excel." and toolkit
   "FINANCIAL MODELING, PRIVATE MARKETS." (the text box wraps it to three rows). The hero holds the Excel badge up,
   then throws it at the boss during the fight (`weapon: "excel"`, thrown at the boss on each attack); on the win it drops into the toolkit bar (toolkit-bar-only tool).
   The party (hero + two teammates) stands beside him.
@@ -94,7 +94,7 @@ Prompt wording lives in `CONFIG.ui` (`promptSpace` = "PRESS SPACE", `promptEnter
      (`drawSanitizerProp`) hits the germ, the bar empties and the germ fades (one hit, `hitsNeeded()`).
      The bottle is a temporary prop drawn only while the attack and fade play; it is not in `TOOL_ICON`/`TOOL_KEYS` and never enters `earned()`.
   2. The question "WHERE DO I GO TO SCHOOL?" with a grey silhouette + "?" and the prompt "PRESS ENTER TO REVEAL." Enter reveals the
-     Texas Tech logo with a short flash and sparkles, and the text "TEXAS TECH." followed by a second line, "WRECK EM!" (`CONFIG.ui.wreck`) (`card.stage` 0 -> 1).
+     Texas Tech logo with a short flash and sparkles, and the text "TEXAS TECH.", then four bullets (`mystery.perks`: Team culture, Top 25 women's golf team, Vibrant college town, Full-ride scholarship, in two columns), then the cheer "WRECK EM!" (`CONFIG.ui.wreck`) (`card.stage` 0 -> 1).
      The logo is `texas_tech_logo.jpeg`, embedded in `index.html` as a base64 data URL (the `IMAGES` block at the top; `mystery.logo` is its key; the .jpeg file is kept only as the source). `logoCanvas()` pixelates it by drawing
      it onto a small offscreen canvas (56 px wide before cropping in the popup, 16 on the map sign), then removes the white background in code:
      near-white pixels (all channels > 225, a little slack for JPEG noise) connected to the image edge become transparent, white inside the logo
@@ -270,3 +270,19 @@ Screen 3 (hat + toolkit) now only types the quote. Space then fades the whole sc
 
 - **F** (`stepForward`) = fast-forward one small step, whatever is waiting. If the screen's text is still typing / animating it completes it at once (that is one step); otherwise it does the one action that moves things along: leaves the title, objective screen or map (the walk is skipped too), attacks once on a boss card, uses the sanitizer / reveals the answer on the High School card, zooms the globe in, visits the next city, zooms out, advances a finale screen, or closes the card. It ignores the "wait for the text" lock, because it completes the text first.
 - **B** (`stepBack`) = undo one step. Every Space / Enter / click / F step first saves a snapshot (`act`, `snap`, `HIST`, up to 400) of the game state (screen, stop, card, fight progress, globe, `won`, `revealed`); B restores the most recent one and shows that screen fully played out (typing done, tools landed). Steps that change nothing (a blocked key, a finished-typing F) are not recorded. The timer is never rewound. R clears the history.
+
+## "Important decision" banner (High School)
+
+After the germ is beaten, the screen goes dark and a red glow breathes behind "IMPORTANT" (gold, 0.45 s) and "DECISION" (big, white, 1.0 s, with a short shake), between two glowing gold rails and a bright streak that sweeps across the screen; two heavy low hits play (`sfxSting("decision")`) and the screen flashes (`drawDecision`, `DECISION` timings). It fades out by about 3.3 s and the question "Where do I go to school?" then types (3.7 s), so the text box is blank during the fight and the banner. Keys wait for the question to finish typing; F (skip) and B (back) jump past the banner. Reduced motion: no banner, the question types normally.
+
+## Career-milestone award (Undergrad)
+
+- The Undergrad stop has `award: { title: "CAREER MILESTONE", logo: "the_hartford_logo.svg" }`. After the last tool lands in the toolkit bar (`toolsLanded`) and the skills line has typed, a gold rosette medal with red and blue ribbon tails and a "CAREER MILESTONE" title plate pops up in the middle of the scene on a turning sunburst (3.2 s after the last tool; bell arpeggio via `sfxSting("award")` and a small flash), holds 2.5 s, then shrinks away. Then (`AWARD.logoAt`, 6.2 s) the company logo pops in on a cream plaque where the boss stood. `drawMedal`, `pixelLogo`, `AWARD` timings.
+- `the_hartford_logo.svg` (the stag and "The Hartford") is embedded in `IMAGES` as an SVG data URL (the .svg file is the source). `pixelLogo(src, 88)` draws it onto an 88 px wide canvas and thresholds it into hard pixels (dark ink, plus one mid tone for the edges), drawn with smoothing off at 1 unit per pixel, so it is pixelated like the game but the wordmark stays readable. Unlike `logoCanvas`, it works for logos on a transparent background.
+- The VICTORY! and TEAMMATES JOINED labels disappear when the award starts (the plaque takes their corner). Keys and the prompt wait until the award sequence is over (`AWARD.done`, 7 s after the last tool). F (skip) jumps to the end of it; B restores the screen with the plaque in place. Reduced motion: no popup, the plaque is simply there.
+
+### More career milestones (Booth and Masked Rider Capital)
+
+- The award mechanism is per stop (`award: { title, logo, color, text }`). Booth Masters in Finance: after Finals is beaten and the tools land, the medal pops up, then `BC_Partners_logo.svg` stands where Finals was and the text box below the tray changes to "Chelsea joined the team analyzing the market for a potential buy-and-build investment". Masked Rider Capital: after THE ROLL-UP TWISTER is beaten and the Excel badge lands, the medal, then `masked_rider_capital_logo.jpeg` where the twister stood, and the text box reads "I ♥ cash flows" (a red heart glyph, `\u2665`, is part of the font). Undergrad (Hartford) has no caption, so its box keeps the skills line.
+- `award.text` replaces the "Added to toolkit: ..." line once the logo is placed (it retypes), so the typing, the gating (`AWARD.done`) and F / B behave as for the Undergrad award.
+- `pixelLogo(src, wPx, color)`: `color: true` keeps the logo's own colours (BC Partners blue and navy, MRC red and black), drops the white background of JPEGs and the transparent area of SVGs, crops to the logo and thresholds it into hard pixels; without `color` (Hartford) the logo is drawn in one dark ink with one mid tone. Both SVGs and the JPEG are embedded in `IMAGES` (the files in the folder are the sources).
