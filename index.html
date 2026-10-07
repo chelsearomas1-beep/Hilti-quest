@@ -2158,7 +2158,7 @@ function drawGlobeZoom(F) {                          // the camera zooms in: the
 }
 /* ---- the dark finale (card.stage 4): the screen goes black, "CONGRATULATIONS!!" and "Toolkit complete." appear, then "Or is it?" fades in slowly
    and the last line types out ---- */
-const OUTRO = { dark: 0.7, congrats: 0.8, complete: 2.0, twist: 3.4, twistFade: 1.1, closing: 5.0, logoGap: 0.4, logoFade: 0.8 };     // seconds into stage 4
+const OUTRO = { dark: 0.5, congrats: 0.6, complete: 1.3, twist: 2.0, twistFade: 0.8, closing: 3.1, logoGap: 0.3, logoFade: 0.7 };     // seconds into stage 4
 function sfxSting(kind) {                            // a bright fanfare for the congratulations, a low uneasy drone for the twist
   const ac = MUSIC.ac;
   if (!ac || !MUSIC.master) return;
