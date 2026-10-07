@@ -72,7 +72,7 @@ Hilti = the hard hat (dropped by the castle finale, below).
 | **Space** (or click) | next: start, walk to the next stop, open its card, close a card, finish; on a boss card it is one attack (pressing mid-swing finishes that swing and swings again) |
 | **Enter** | reveal / use: reveal the hidden next stop on the map, and on the scripted High School card use the hand sanitizer and then reveal the answer. Does nothing on other cards |
 | **Backspace / Left arrow / Page Up** | the old back: close a card, walk back a stop, leave the finish screen |
-| **Shift+F** / **R** | fullscreen / restart |
+| **S** / **R** | fullscreen / restart |
 | **F** / **B** | presenter shortcuts, not shown on screen: F skips ahead one small step, B goes back one small step (see below) |
 | **M** | music on / off (greyed "M MUSIC" in the controls bar while muted) |
 
@@ -302,3 +302,17 @@ After the germ is beaten, the screen goes dark and a red glow breathes behind "I
 ### Order of the company logo and the career-milestone medal
 
 - At every award stop the **logo comes first, the medal follows**. After the tools land, Space #1 (beat `logo`) puts the company logo plaque where the boss stood and swaps the text box to its line ("Chelsea joins the Surety Bond team at The Hartford ...", the BC Partners line, "I \u2665 cash flows"); Space #2 (beat `medal`) pops up the CAREER MILESTONE medal; then, at Texas Tech, the chain goes on (Tech 10, proudest achievement, ...). Undergrad `beats`: logo, medal, tech10, proud, next, liked, grad, decide. Booth and Masked Rider Capital use the default `["logo", "medal"]`, so the medal is the last thing at the end of those stops. At Masked Rider Capital the stop also opens with the logo before the fight (`pre`).
+
+## Friends at each stop (nobody follows the hero any more)
+
+- The blonde and ginger teammates no longer trail the hero along the road or stand with her at Booth, Masked Rider Capital or Hilti. They only appear on the Undergrad card, once the alarm is beaten (`partyMates()` returns `MATE_STYLES.slice(0, st.team)` there; `mates()` and the map followers were removed; the "2 TEAMMATES JOINED" label is still shown at Undergrad).
+- Booth (`friends: ["boothDark", "boothLight"]`) and Masked Rider Capital (`friends: ["mrcGirl", "mrcTall"]`) each have their own two friends, standing beside the hero for the whole stop and gone when she leaves (`FRIENDS`, `drawFriendHi`, used by `drawParty` through `partyMates()`): Booth: two men, one with darker tan skin and black hair (grey sweater), one with lighter skin and brown hair (blue shirt, khakis); MRC: a white woman with long brown hair (red top) and a very tall white man with brown hair (light blue shirt, 40 hi-px tall instead of 32, `tall: 8`, `h: 40`, standing on the ground line so his head stays inside the scene).
+
+## Fullscreen and "meet the characters"
+
+- **S** is fullscreen (it used to be Shift+F; F is now the presenter's skip-ahead key).
+- The end screen ("QUEST COMPLETE", "THANK YOU") now has a prompt, "PRESS C TO MEET THE CHARACTERS" (`CONFIG.ui.meetPrompt`). **C** opens three slides (`S.MEET`, `meet`, `MEET_SLIDES`, `drawMeet`) on the night backdrop under the title "MEET THE CHARACTERS" (Space = next slide; after the third, back to the end screen; Backspace / Left arrow = previous slide; B undoes like any step; the timer is paused here):
+  1. Texas Tech teammates: the blonde (Kylee) and ginger (Libby) pixel characters beside `libby_kylee` ("Libby & Kylee").
+  2. Booth friends: the two Booth pixel men beside `athean` and `rankin` (the darker-skinned black-haired one is labelled Athean, the lighter brown-haired one Rankin).
+  3. Masked Rider Capital friends: the pixel woman ("Autumn") and the very tall pixel man ("Trey") beside `trey_autumn`.
+- The four photos are embedded in `IMAGES` as `libby_kylee.jpeg`, `athean.jpeg`, `rankin.jpeg`, `trey_autumn.jpeg` (downscaled to about 520-700 px; the originals in the folder are the sources) and drawn smoothly on the canvas. Names and which pixel character goes with which photo are in `MEET_SLIDES`.
