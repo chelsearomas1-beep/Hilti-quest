@@ -93,7 +93,7 @@ const CONFIG = {
         build: {                                                         // the build sequence: one Space starts it, then the four towers go up on their own
           gap: 1,                                                        // seconds of dark between towers
           towers: [                                                      // caption (under about 12 words) and how long each tower takes, in seconds
-            { name: "Teamwork",   secs: 11, caption: "Teamwork: we build it together." },
+            { name: "Teamwork",   secs: 8, caption: "Teamwork: we build it together." },
             { name: "Commitment", secs: 18, caption: "Commitment: Keeping everyone accountable" },
             { name: "Integrity",  secs: 11, caption: "Integrity: Own it, Fix it" },
             { name: "Courage",    secs: 16, caption: "Courage: To build differently" }
@@ -103,13 +103,13 @@ const CONFIG = {
         why: {                                                           // three short cards after the build, one Space each: Why Hilti -> Still to unlock -> What I expect
           title: "Why Hilti", text: "Community impact is part of how Hilti works.",
           unlockTitle: "Still to unlock", locks: ["Product knowledge", "Field sales", "Business Chinese and German"],      // the third lock carries the China and Germany flags
-          expectTitle: "What I expect", expect: "Real accounts. Real mentors. Real range."
+          expectTitle: "How I'll level up with Hilti", expect: "Strategy experience. Integrated mentorship. Rotational breadth."
         },
         globe: "A multicultural home.\nStudy abroad.\nGlobal is normal.",
         cities: [                                                        // the globe visits these in order, one Space each
           { name: "LONDON",   lat: 51.5, lon: -0.13, label: "London: studied abroad", photo: "hilti_london.jpeg" },
           { name: "SHANGHAI", lat: 31.2, lon: 121.5, label: "Shanghai: my mom's home", photo: "hilti_shanghai.jpeg" },
-          { name: "MUNICH",   lat: 48.1, lon: 11.6,  label: "Munich: my partner's home. Hilti builds there too.", photo: "hilti_munich.jpeg" }
+          { name: "MUNICH",   lat: 48.1, lon: 11.6,  label: "Munich: my partner's home", photo: "hilti_munich.jpeg" }
         ],
         zoomIn: "PRESS ENTER TO ZOOM IN.", cont: "PRESS ENTER TO CONTINUE.",
         steps: ["Now: Outperformer Program",
@@ -2284,9 +2284,9 @@ function bdChar(id, cx, feet, o) {                    // a large character stand
   o = o || {};
   ell(cx, feet + 1, 24, 3, "rgba(0,0,0,0.3)");
   if (id === "hero") { drawHeroHi(cx - 24, feet - 80, 4, !o.left, !!o.walk, o.walk ? timeNow : 0, earned(), { club: true, shield: true }); return; }      // her hands are free for bricks and tools
-  const m = id === "athean" ? FRIENDS.boothDark : id === "rankin" ? FRIENDS.boothLight : id === "trey" ? { ...FRIENDS.mrcTall, tall: 24, h: 56 } : id === "kylee" ? MATE_STYLES[0] : MATE_STYLES[1];
+  const m = id === "athean" ? FRIENDS.boothDark : id === "rankin" ? FRIENDS.boothLight : id === "trey" ? { ...FRIENDS.mrcTall, tall: 24, h: 56 } : id === "autumn" ? FRIENDS.mrcGirl : id === "kylee" ? MATE_STYLES[0] : MATE_STYLES[1];
   const h = (m.h || 32) * 2, kk = id.length;
-  const draw = oy => { if (m.friend) drawFriendHi(cx - 20, oy, 4, m, kk); else drawMateHi(cx - 20, oy, 4, !o.left, !!o.walk, o.walk ? timeNow : 0, m, kk); };
+  const draw = oy => { if (m.friend) { if (o.left) { ctx.save(); ctx.translate(cx * 2, 0); ctx.scale(-1, 1); } drawFriendHi(cx - 20, oy, 4, m, kk); if (o.left) ctx.restore(); } else drawMateHi(cx - 20, oy, 4, !o.left, !!o.walk, o.walk ? timeNow : 0, m, kk); };
   if (o.sit) {                                         // sitting down: lowered body, legs stretched out in front, a sweat drop
     ctx.save(); ctx.beginPath(); ctx.rect(cx - 40, feet - 100, 110, 100 - 6); ctx.clip();
     draw(feet - h + 22);
@@ -2449,7 +2449,7 @@ function bdCommit(p, bd) {                               // 2. Commitment: a gro
     bdTag("Chelsea", heroX, GY - 80 - 20, tick.c); bdTag("Kylee", kyleeX, GY - 64 - 20, tick.k);
     bdTag("Libby", p < 0.66 ? 132 : libbyX, GY - 64 - 20, tick.l);
   }
-  if (p >= 0.56 && p < 0.7) bdBubble("Morning! Coffee's on me.", 124, 56, heroX);
+  if (p >= 0.55 && p < 0.77) bdBubble("Morning! Coffee's on me.", 124, 56, Math.min(heroX, 124));
   if (p >= 0.525 && p < 0.575 && !reduceMotion && Math.floor(p * 120) % 2 === 0) { for (let i = 0; i < 3; i++) rect(houseX + 10 + i * 4, GY - 30 + (i === 1 ? -3 : 0), 1, 5, "#1b1426"); }       // knock knock
   if (!reduceMotion && p >= 0.525 && p < 0.57 && Math.floor(p * 120) !== bdGlobal.knock) { bdGlobal.knock = Math.floor(p * 120); if (bdGlobal.knock % 2) bdTick("tick"); }
   if (f < 1) { ctx.fillStyle = "rgba(8,12,38," + ((1 - f) * 0.3).toFixed(3) + ")"; ctx.fillRect(0, 26, W, H - 26); }
@@ -2580,14 +2580,26 @@ function bdMini(i, cx, base, k) {                      // a finished tower, smal
   ctx.restore();
 }
 /* ---- the three cards after the build: Why Hilti, Still to unlock, What I expect (all text in finale.why) ---- */
-function pxHandshake(cx, cy, k) {                         // two sleeves and a clasp of hands
-  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k);
+let hsBuf = null;
+function handshakeCanvas() {                              // the system's handshake emoji, drawn on a tiny canvas and hard-edged, so it is detailed pixel art (two clearly separate hands) without any image file
+  if (hsBuf) return hsBuf;
+  const n = 40, cv = document.createElement("canvas"); cv.width = cv.height = n;
+  const g = cv.getContext("2d", { willReadFrequently: true });
+  g.textAlign = "center"; g.textBaseline = "middle"; g.font = "34px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+  g.fillText("\u{1F91D}", n / 2, n / 2 + 2);
+  const im = g.getImageData(0, 0, n, n), d = im.data; let ink = 0;
+  for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 110) d[i + 3] = 0; else { d[i + 3] = 255; ink++; } }      // no soft edges
+  g.putImageData(im, 0, 0);
+  hsBuf = ink > 60 ? cv : false;                                                            // false: this system has no emoji font, use the drawn version
+  return hsBuf;
+}
+function pxHandshake(cx, cy, k) {                         // two hands clasped; k ~ 1.9 gives about 76 units wide
+  const cv = handshakeCanvas();
+  if (cv) { const sz = Math.round(cv.width * k * 1.0); ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, Math.round(cx - sz / 2), Math.round(cy - sz / 2), sz, sz); return; }
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k);                                       // fallback: two sleeves and a clasp
   const ink = "#1b1426", sk = "#f2c396", sd = "#c8905e";
-  rect(-19, -7, 11, 13, ink); rect(-18, -6, 9, 11, "#2f6fd0"); rect(-18, -6, 3, 11, "#4f8fe8");
-  rect(8, -7, 11, 13, ink); rect(9, -6, 9, 11, "#d2051e"); rect(15, -6, 3, 11, "#9a0a16");
-  rect(-9, -5, 18, 11, ink); rect(-8, -4, 16, 9, sk); rect(-9, -6, 2, 12, "#ffffff"); rect(7, -6, 2, 12, "#ffffff");
-  for (let i = 0; i < 4; i++) { rect(-5 + i * 3, 2, 2, 4, ink); rect(-4 + i * 3, 2, 1, 3, sd); }      // fingers wrapped around
-  rect(-6, -7, 11, 4, ink); rect(-5, -6, 9, 3, sk); rect(-5, -4, 9, 1, sd);                           // the thumb on top
+  rect(-19, -7, 11, 13, ink); rect(-18, -6, 9, 11, "#2f6fd0"); rect(8, -7, 11, 13, ink); rect(9, -6, 9, 11, "#d2051e");
+  rect(-9, -5, 18, 11, ink); rect(-8, -4, 16, 9, sk); for (let i = 0; i < 4; i++) rect(-5 + i * 3, 2, 2, 4, sd); rect(-6, -7, 11, 4, ink); rect(-5, -6, 9, 3, sk);
   ctx.restore();
 }
 function pxMentor(cx, cy, k) {                            // an older figure with grey hair, glasses and a tie, holding up a lightbulb
@@ -2624,6 +2636,94 @@ function pxLock(cx, cy, open, flags) {                    // open: 0 closed .. 1
   else { rect(cx - 2, cy - 2, 4, 4, ink); rect(cx - 1, cy + 2, 2, 5, ink); }
   if (open > 0 && open < 0.35 && !reduceMotion) { const f = open / 0.35; ctx.globalAlpha = 1 - f; for (let i = 0; i < 6; i++) { const a = i * 1.05 + 0.4, d = 14 + f * 8; rect(Math.round(cx + Math.cos(a) * d * 1.3), Math.round(cy - 6 + Math.sin(a) * d), 2, 2, "#fff6c8"); } ctx.globalAlpha = 1; }      // the click
 }
+let txBuf = null;
+function toolsXCanvas() {                                 // a claw hammer and a flat screwdriver, each drawn upright with outlines and shading, then tilted into an X (nearest-neighbour, so it stays pixel art)
+  if (txBuf) return txBuf;
+  const M = 1.6, ink = "#1b1426", mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+  const hu = mk(70, 112), g = hu.getContext("2d");
+  const r = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x * M), Math.round(y * M), Math.max(1, Math.round(w * M)), Math.max(1, Math.round(h * M))); };
+  // hammer, upright: handle down the middle, head across the top (claw to the left, striking face to the right)
+  r(15, 17, 11, 52, ink); r(16, 18, 9, 50, "#c68642"); r(16, 18, 3, 50, "#e3a864"); r(22, 18, 3, 50, "#94602a");               // the wooden handle
+  r(14, 40, 13, 29, ink); r(15, 41, 11, 27, "#3a3d4e"); r(15, 41, 3, 27, "#5a5f74"); r(23, 41, 3, 27, "#262836");           // the red rubber grip
+  for (let i = 0; i < 8; i++) r(15, 44 + i * 3, 11, 1, "#262836");
+  r(14, 66, 13, 3, ink); r(15, 66, 11, 2, "#262836");
+  const claw = (w, col, ox) => { for (let i = 0; i <= 28; i++) { const t = i / 28, x = (1 - t) * (1 - t) * 15 + 2 * t * (1 - t) * 4 + t * t * 3, y = (1 - t) * (1 - t) * 11 + 2 * t * (1 - t) * 8 + t * t * 26, th = w * (1 - t * 0.55); r(x - th / 2 + ox, y - th / 2 + ox * 0.5, th, th, col); } };
+  claw(9, ink, 0); claw(7, "#aeb6c6", 0); claw(3.5, "#e3e7f0", -1);                                                         // the curved claw
+  for (let i = 12; i <= 27; i += 1) { const t = i / 28, x = (1 - t) * (1 - t) * 15 + 2 * t * (1 - t) * 4 + t * t * 3, y = (1 - t) * (1 - t) * 11 + 2 * t * (1 - t) * 8 + t * t * 26; r(x, y, 1, 1, "#6b7388"); }   // the split down the claw
+  r(11, 6, 27, 17, ink); r(12, 7, 25, 15, "#aeb6c6"); r(12, 7, 25, 4, "#e3e7f0"); r(12, 18, 25, 4, "#7d869c");              // the head: a steel bar
+  r(10, 11, 4, 9, ink); r(11, 12, 3, 7, "#8c93a2");                                                                          // the neck where the claw meets it
+  r(32, 3, 10, 24, ink); r(33, 4, 8, 22, "#9aa4b8"); r(33, 4, 3, 22, "#d6dbe6"); r(38, 4, 3, 22, "#5d6578"); r(33, 4, 8, 3, "#e8ecf4"); r(33, 23, 8, 3, "#4a5266");   // the striking face (a thicker cylinder)
+  r(20, 20, 6, 3, ink); r(21, 20, 4, 2, "#6b7388");                                                                          // the collar
+  // screwdriver, upright: flat blade at the top, steel shaft, yellow handle with grip rings
+  const su = mk(40, 120), g2 = su.getContext("2d");
+  const q = (x, y, w, h, c) => { g2.fillStyle = c; g2.fillRect(Math.round(x * M), Math.round(y * M), Math.max(1, Math.round(w * M)), Math.max(1, Math.round(h * M))); };
+  q(9, 2, 8, 4, ink); q(10, 2, 6, 3, "#e3e7f0");                                                                            // the flat tip
+  q(10, 4, 6, 30, ink); q(11, 5, 4, 28, "#aeb6c6"); q(11, 5, 1, 28, "#eef1f7"); q(14, 5, 1, 28, "#6b7388");                  // the steel shaft
+  q(8, 32, 10, 5, ink); q(9, 33, 8, 3, "#5d6578"); q(9, 33, 8, 1, "#8c93a2");                                                // the ferrule
+  q(6, 36, 14, 38, ink); q(7, 37, 12, 36, "#f2b705"); q(7, 37, 4, 36, "#ffd95e"); q(15, 37, 4, 36, "#c48a00");               // the handle
+  for (let i = 0; i < 6; i++) { q(7, 41 + i * 5, 12, 2, "#8a5a00"); }
+  q(7, 37, 12, 5, "#d2051e"); q(7, 37, 4, 5, "#f0505e"); q(6, 72, 14, 3, ink); q(7, 72, 12, 2, "#8a5a00");
+  const out = mk(190, 190), o = out.getContext("2d"); o.imageSmoothingEnabled = false;
+  o.save(); o.translate(95, 100); o.rotate(0.72); o.drawImage(su, -Math.round(13 * M), -Math.round(34 * M)); o.restore();    // screwdriver: tip up-right
+  o.save(); o.translate(95, 100); o.rotate(-0.72); o.drawImage(hu, -Math.round(26 * M), -Math.round(40 * M)); o.restore();   // hammer: head up-left
+  return (txBuf = out);
+}
+function pxSkill(kind, cx, cy, f) {                       // what a lock turns into once it opens: a hammer, an upward zigzag arrow, the translate sign (f 0..1 pops it in)
+  const k = f < 1 ? 0.4 + 0.6 * ez(f) + Math.sin(f * Math.PI) * 0.25 : 1, ink = "#1b1426";
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k);
+  if (kind === 0) {                                                                    // a claw hammer and a screwdriver crossed in an X (drawn once on a small canvas)
+    const cv = toolsXCanvas(); ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, -cv.width * 0.23, -cv.height * 0.23 - 7, cv.width * 0.46, cv.height * 0.46);
+  } else if (kind === 1) {                                                             // a zigzag arrow going up
+    const pts = [[-16, 16], [-6, 2], [0, 10], [14, -12]];
+    for (let pass = 0; pass < 2; pass++) for (let q = 0; q < pts.length - 1; q++) {
+      const a = pts[q], b = pts[q + 1], n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+      for (let i = 0; i <= n; i++) { const x = Math.round(a[0] + (b[0] - a[0]) * i / n), y = Math.round(a[1] + (b[1] - a[1]) * i / n); if (pass === 0) rect(x - 3, y - 3, 6, 6, ink); else rect(x - 2, y - 2, 4, 4, "#35c26a"); }
+    }
+    for (let y = -25; y <= -11; y++) rect(9 + (y + 25), y, 14 - (y + 25), 1, ink);                        // arrowhead pointing up-right: a filled triangle with an outline
+    for (let y = -23; y <= -13; y++) rect(12 + (y + 23), y, 9 - (y + 23), 1, "#35c26a");
+  } else {                                                                             // the translate sign: a blue tile with a character, a white tile with an A
+    rect(-18, -20, 22, 22, ink); rect(-17, -19, 20, 20, "#4285f4");
+    rect(-14, -13, 14, 2, "#ffffff"); rect(-8, -17, 2, 4, "#ffffff"); for (let i = 0; i < 7; i++) { rect(-9 - i * 0.9, -11 + i, 2, 1, "#ffffff"); rect(-7 + i * 0.9, -11 + i, 2, 1, "#ffffff"); }
+    rect(-4, -8, 22, 22, ink); rect(-3, -7, 20, 20, "#ffffff"); text("A", 7, -3, 2, "#4285f4", "center");
+    pxFlagCN(-12, 17); pxFlagDE(2, 17);
+  }
+  ctx.restore();
+}
+const CABIN = { N: 7, rh: 8, x0: 150, w: 84, base: 152, start: 0.2, every: 0.3, fly: 0.3, roofAt: 2.5, doneAt: 3.3 };      // the quick cabin build on the "Why Hilti" card (seconds)
+function drawCabin(t) {                                   // Chelsea and Autumn lay log rows one after the other, then the roof and door go on
+  const C = CABIN, ink = "#1b1426", GYc = C.base;
+  const hand = [{ x: 108 + 16, y: GYc - 25 }, { x: 276 - 14, y: GYc - 22 }];
+  const rowY = k => GYc - (k + 1) * C.rh;
+  for (let k = 0; k < C.N; k++) {
+    const t0 = C.start + k * C.every;
+    if (t < t0 + C.fly) continue;
+    const y = rowY(k), off = k % 2 ? 3 : 0, x = C.x0 - 3 - off, w = C.w + 6 + off * 2;
+    rect(x, y, w, C.rh, ink); rect(x + 1, y + 1, w - 2, C.rh - 2, "#a8693a"); rect(x + 1, y + 1, w - 2, 1, "#c98a52"); rect(x + 1, y + C.rh - 2, w - 2, 1, "#7a4a24");
+    for (let q = 0; q < 6; q++) rect(x + 8 + q * 14 + (k % 3) * 3, y + 3, 5, 1, "#8a5630");
+    rect(x + 1, y + 1, 4, C.rh - 2, "#d9a46a"); rect(x + 2, y + 3, 2, 2, "#8a5630"); rect(x + w - 5, y + 1, 4, C.rh - 2, "#d9a46a"); rect(x + w - 4, y + 3, 2, 2, "#8a5630");        // the round log ends
+  }
+  for (let k = 0; k < C.N; k++) {                          // the log in flight: from the builder's hand up onto its row
+    const t0 = C.start + k * C.every, f = (t - t0) / C.fly;
+    if (f <= 0 || f >= 1) continue;
+    const h = hand[k % 2], tx = C.x0 + C.w / 2, ty = rowY(k) + 4, x = lp(h.x, tx, ez(f)), y = lp(h.y, ty, ez(f)) - Math.sin(f * Math.PI) * 18;
+    rect(x - 13, y - 4, 26, 8, ink); rect(x - 12, y - 3, 24, 6, "#a8693a"); rect(x - 12, y - 3, 24, 1, "#c98a52"); rect(x - 12, y - 3, 3, 6, "#d9a46a"); rect(x + 9, y - 3, 3, 6, "#d9a46a");
+  }
+  const rf = cl((t - C.roofAt) / 0.45);
+  if (rf > 0) {                                            // the shingled roof drops on
+    const dy = Math.round((1 - ez(rf)) * -26), top = rowY(C.N - 1);
+    ctx.globalAlpha = Math.min(1, rf * 2);
+    for (let r = 0; r < 10; r++) { const rw = 110 - r * 10; rect(C.x0 + C.w / 2 - rw / 2 - 1, top - 2 - r * 3 + dy, rw + 2, 4, ink); }
+    for (let r = 0; r < 10; r++) { const rw = 110 - r * 10; rect(C.x0 + C.w / 2 - rw / 2, top - 1 - r * 3 + dy, rw, 3, r % 2 ? "#6a2a22" : "#8e3a2e"); }
+    ctx.globalAlpha = 1;
+  }
+  const df = cl((t - C.roofAt - 0.4) / 0.35);
+  if (df > 0) {                                            // a door and two lit windows
+    ctx.globalAlpha = df;
+    rect(C.x0 + 35, GYc - 24, 16, 24, ink); rect(C.x0 + 36, GYc - 23, 14, 23, "#4a2e18"); rect(C.x0 + 46, GYc - 12, 2, 2, "#f2b705");
+    for (const wx of [C.x0 + 10, C.x0 + 62]) { rect(wx, GYc - 36, 14, 12, ink); rect(wx + 1, GYc - 35, 12, 10, "#ffe27a"); rect(wx + 6, GYc - 35, 2, 10, ink); rect(wx + 1, GYc - 31, 12, 1, ink); }
+    ctx.globalAlpha = 1;
+  }
+}
 function drawWhy(F) {
   const c = card, Y = F.why, w = c.why, R = reduceMotion, GY = BD.GY;
   rect(0, 26, W, H - 26, "#12162c");
@@ -2634,21 +2734,23 @@ function drawWhy(F) {
   const title = w === 1 ? Y.title : w === 2 ? Y.unlockTitle : Y.expectTitle;
   lightLabel(title, W / 2, 34, 2, "center");
   if (w === 1) {
-    ctx.save(); ctx.translate(112, 150 - BD.GY); bdHouse(0 + 0, true, false); ctx.restore();
-    pxHandshake(272, 134, 2.2);
+    const bt = R ? 99 : c.t - (c.wt || 0);
+    bdChar("hero", 108, CABIN.base, { walk: false });
+    bdChar("autumn", 276, CABIN.base, { left: true });
+    drawCabin(bt);
     const rows = wrap(Y.text, 34); rows.forEach((r, i) => lightLabel(r, W / 2, 168 + i * 17, 1.5, "center"));
   } else if (w === 2) {
     const xs = [70, 192, 314];
     Y.locks.forEach((lab, i) => {
       const cx = xs[i], op = (c.lk || 0) > i ? (R ? 1 : cl((c.t - ((c.lkT || [])[i] || 0)) / 0.7)) : 0;
       rect(cx - 52, 66, 104, 108, "#1b1426"); rect(cx - 51, 67, 102, 106, "#2a3050"); rect(cx - 51, 67, 102, 3, "#3a4468");
-      pxLock(cx, 108, op, i === 2);
-      const ls = wrap(lab, 15); ls.forEach((r, j) => text(r, cx, 138 + j * 13, 1.5, op >= 1 ? "#ffe27a" : "#ffffff", "center"));
+      if (op >= 0.6) pxSkill(i, cx, 108, R ? 1 : (op - 0.6) / 0.4); else pxLock(cx, 108, op / 0.6, false);
+      const ls = wrap(lab, 12); ls.forEach((r, j) => text(r, cx, 138 + j * 13, 1.5, op >= 1 ? "#ffe27a" : "#ffffff", "center"));
     });
   } else {
     const xs = [80, 192, 304];
     xs.forEach(cx => { rect(cx - 40, 62, 80, 80, "#1b1426"); rect(cx - 39, 63, 78, 78, "#2a3050"); rect(cx - 39, 63, 78, 3, "#3a4468"); });
-    pxHandshake(xs[0], 104, 1.7); pxMentor(xs[1], 108, 1.7); pxCycle(xs[2], 102, 1.5, R ? 0 : timeNow * 1.3);
+    pxHandshake(xs[0], 104, 1.9); pxMentor(xs[1], 108, 1.7); pxCycle(xs[2], 102, 1.5, R ? 0 : timeNow * 1.3);
     lightLabel(Y.expect, W / 2, 160, 1.5, "center");
   }
   ctx.globalAlpha = 1;
