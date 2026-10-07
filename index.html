@@ -89,7 +89,17 @@ const CONFIG = {
       boss: "", line: "Four values light the way.", toolkit: "",       // line = the first screen (the four value towers)
       isCastle: true, tools: ["hat"],
       finale: {                                                          // the castle sequence: towers -> globe -> steps -> hat + toolkit
-        values: ["Integrity", "Courage", "Teamwork", "Commitment"],      // the four towers (placeholder names: edit freely)
+        values: ["Teamwork", "Commitment", "Integrity", "Courage"],      // the four towers, in the order they are built
+        build: {                                                         // the build sequence: one Space starts it, then the four towers go up on their own
+          gap: 1,                                                        // seconds of dark between towers
+          towers: [                                                      // caption (under about 12 words) and how long each tower takes, in seconds
+            { name: "Teamwork",   secs: 15, caption: "Teamwork: we build it together." },
+            { name: "Commitment", secs: 15, caption: "Commitment: Accountability, to keep everyone's commitments" },
+            { name: "Integrity",  secs: 15, caption: "Integrity: Own it, Fix it" },
+            { name: "Courage",    secs: 15, caption: "Courage: To build differently" }
+          ],
+          done: "Press Space to continue."                               // shown only once the hat has landed and the toolkit has lit
+        },
         globe: "A multicultural home.\nStudy abroad.\nGlobal is normal.",
         cities: [                                                        // the globe visits these in order, one Space each
           { name: "LONDON",   lat: 51.5, lon: -0.13, label: "London: studied abroad", photo: "hilti_london.jpeg" },
@@ -649,14 +659,19 @@ function advance() {                          // SPACE (or a click): next / atta
     if (card.pre) { card.pre = false; card.entT0 = card.t; return; }                  // the first Space after the opening line brings the boss in
     const bl = beatsOf(st);
     if (st.battle && card.phase === 2 && bl.length && (card.bt ? card.bt.length : 0) < bl.length) { (card.bt = card.bt || []).push(card.t); return; }      // each Space after the tools starts the next beat
-    if (st.finale) {                                                 // castle finale: Space steps through towers -> globe -> steps -> hat + toolkit
+    if (st.finale) {                                                 // castle finale: Space steps through the build -> globe -> steps -> quote -> dark finale
       const g = card.g;
+      if (card.stage === 0) {                                        // the build sequence: Space starts it, then skips to the end of the current tower; after it, Space moves on
+        if (!card.bd) { card.bd = { t: 0, paused: false, done: false, lights: 0 }; return; }
+        if (!card.bd.done) { buildSkip(card, st.finale); return; }
+        card.stage++; card.st = 0; return;
+      }
       if (card.stage === 1) {                                        // the globe: Enter zooms in/out; Space visits the next city, then moves on once back at the castle
         if (g.mode === 1 && g.z >= 1 && !g.zd) { if (g.rot) globeFinishRot(); else if (g.placed < st.finale.cities.length) startRot(st.finale); }
         else if (g.mode === 2) { card.stage++; card.st = 0; }
       }
       else if (card.stage < 3) { card.stage++; card.st = 0; }
-      else if (card.stage === 3) { if (card.st >= finaleTimes().done) { card.stage = 4; card.st = 0; } else card.st = finaleTimes().done; }   // 3: hat + toolkit; Space goes on to the dark finale
+      else if (card.stage === 3) { card.stage = 4; card.st = 0; }   // 3: the quote; Space goes on to the dark finale
       else closeCard();                                              // 4: the dark "Congratulations" finale; Space ends the quest once its text is done
       return;
     }
@@ -748,6 +763,7 @@ function stepBack() {                               // B
   ({ state, idx, heroT, heroDir, walk, card, won, revealed, intro, introDone, meet } = s0);
   parts.length = 0; flash = 0;
   if (state === S.INTRO) intro.t = 99;
+  if (card && card.bd) { card.bd.done = true; card.bd.t = 1e4; card.bd.paused = false; }      // a restored build sequence is shown finished
   if (card) {                                       // show the restored screen fully played out
     card.tt = 999; card.anim = 99;
     if (card.phase === 2) card.t = Math.max(card.t, 999);
@@ -759,6 +775,7 @@ addEventListener("keydown", e => {
   const k = e.key;
   musicStart();
   if (k === "m" || k === "M") { musicToggle(); return; }
+  if ((k === "p" || k === "P") && state === S.CARD && card && card.bd && !card.bd.done) { card.bd.paused = !card.bd.paused; return; }      // hidden: pause / resume the build sequence
   if ((k === "c" || k === "C") && state === S.END) { e.preventDefault(); act(() => { state = S.MEET; meet = { slide: 0, t: 0 }; }); }                          // C on the end screen: meet the characters
   else if (k === " " || k === "Spacebar" || k === "ArrowRight" || k === "PageDown") { e.preventDefault(); act(advance); }
   else if ((k === "f" || k === "F") && !e.shiftKey) { e.preventDefault(); stepForward(); }                    // F: presenter shortcut, skip ahead one small step
@@ -1583,7 +1600,7 @@ function drawHud() {
 function drawToolkitBar() {              // toolkit bar: seven compact slots; tools not yet earned stay dimmed silhouettes, labelled TOOLKIT
   const g = earned();
   const { gx, gy, sw, sh, pitch } = HUD_BAR;
-  const bt = card && STOPS[card.i].battle, power = bt && bt.power && card.phase < 2 && g.has(bt.power) ? bt.power : null;
+  const bt = card && STOPS[card.i].battle, power = (card && card.bd && card.bd.pulse) || (bt && bt.power && card.phase < 2 && g.has(bt.power) ? bt.power : null);
   rect(gx - 3, gy - 3, TOOL_KEYS.length * pitch + 3 + 50, sh + 6, "rgba(20,16,32,0.55)");
   text(CONFIG.ui.toolkitBar, gx + TOOL_KEYS.length * pitch + 2, gy + 4, 1, "#ffd95e", "left");
   const pulse = reduceMotion ? 0.7 : 0.5 + 0.5 * Math.sin(timeNow * 5);
@@ -1598,14 +1615,11 @@ function drawToolkitBar() {              // toolkit bar: seven compact slots; to
     frame(x, gy, sw, sh, 1, hot ? "#ffd95e" : has ? "#ffffff" : "rgba(255,255,255,0.18)");
     iconAt(k, x, gy, sw, sh, has ? null : "rgba(255,255,255,0.16)");
   });
-  const fin = card && STOPS[card.i].finale && card.stage === 3 ? finaleTimes() : null;
-  if (fin) {                                                                        // finale: all seven compartments light up in turn
-    const n = reduceMotion ? TOOL_KEYS.length : Math.min(TOOL_KEYS.length, Math.floor((card.st - fin.lights) / fin.gap) + 1);
-    for (let i = 0; i < n; i++) {
-      const x = gx + i * pitch, fresh = !reduceMotion && i === n - 1 && n < TOOL_KEYS.length;
-      rect(x, gy, sw, sh, "rgba(255,217,94," + (fresh ? 0.55 : 0.28) + ")"); frame(x, gy, sw, sh, 1, "#ffd95e");
-      if (fresh) frame(x - 1, gy - 1, sw + 2, sh + 2, 1, "#ffffff");
-    }
+  const nL = card && STOPS[card.i].finale && card.stage === 0 && card.bd ? card.bd.lights || 0 : 0;      // the end of the build: all seven compartments light up in turn
+  for (let i = 0; i < nL; i++) {
+    const x = gx + i * pitch, fresh = !reduceMotion && i === nL - 1 && nL < TOOL_KEYS.length;
+    rect(x, gy, sw, sh, "rgba(255,217,94," + (fresh ? 0.55 : 0.28) + ")"); frame(x, gy, sw, sh, 1, "#ffd95e");
+    if (fresh) frame(x - 1, gy - 1, sw + 2, sh + 2, 1, "#ffffff");
   }
 }
 
@@ -2235,13 +2249,278 @@ function drawMedal(cx, cy, k, title) {              // a gold rosette medal with
   text(title, 0, 47.5, 2, "#ffe27a", "center");
   ctx.restore();
 }
+/* ---- the Hilti build sequence (finale screen 0): the four towers go up one after another on their own, then the hard hat lands on the keep and
+   the toolkit lights up. One Space starts it; no prompts are shown while it runs. Hidden controls: Space skips to the end of the current tower, P pauses. ---- */
+const BD = { TX: 272, GY: 186, END: { cut: 0.8, hat: 0.9, land: 1.9, lights: 2.6, gap: 0.4, done: 5.8 } };
+function buildTimes(F) {                              // from the config: when each tower starts and ends (seconds on the build clock)
+  const starts = [], ends = []; let a = 0;
+  F.build.towers.forEach(t => { starts.push(a); a += t.secs; ends.push(a); a += F.build.gap; });
+  return { starts, ends, total: ends[ends.length - 1] };
+}
+function buildSkip(c, F) {                            // Space during the sequence: jump to the end of the current tower (or the end of everything)
+  const T = buildTimes(F);
+  for (let i = 0; i < T.ends.length; i++) if (T.ends[i] > c.bd.t + 0.01) { c.bd.t = T.ends[i]; return; }
+  c.bd.t = T.total + BD.END.done;
+}
+function bdTick(kind) {                               // a few tiny sound effects for the build
+  if (!MUSIC.ac || !MUSIC.master || reduceMotion) return;
+  const t = MUSIC.ac.currentTime;
+  if (kind === "tick") musicNoise(t, 0.1, 0.05, "bandpass", 1800);
+  else if (kind === "weld") musicNoise(t, 0.05, 0.12, "highpass", 5000);
+}
+const ez = p => p * p * (3 - 2 * p), cl = (v, a, b) => Math.max(a === undefined ? 0 : a, Math.min(b === undefined ? 1 : b, v)), lp = (a, b, p) => a + (b - a) * p;
+function bdChar(id, cx, feet, o) {                    // a large character standing on `feet`, centred on cx
+  o = o || {};
+  ell(cx, feet + 1, 24, 3, "rgba(0,0,0,0.3)");
+  if (id === "hero") { drawHeroHi(cx - 24, feet - 80, 4, true, !!o.walk, o.walk ? timeNow : 0, earned(), {}); return; }
+  const m = id === "athean" ? FRIENDS.boothDark : id === "rankin" ? FRIENDS.boothLight : id === "trey" ? FRIENDS.mrcTall : id === "kylee" ? MATE_STYLES[0] : MATE_STYLES[1];
+  const h = (m.h || 32) * 2, kk = id.length;
+  const draw = oy => { if (m.friend) drawFriendHi(cx - 20, oy, 4, m, kk); else drawMateHi(cx - 20, oy, 4, true, !!o.walk, o.walk ? timeNow : 0, m, kk); };
+  if (o.sit) {                                         // sitting down: lowered body, legs stretched out in front, a sweat drop
+    ctx.save(); ctx.beginPath(); ctx.rect(cx - 40, feet - 100, 110, 100 - 6); ctx.clip();
+    draw(feet - h + 22);
+    ctx.restore();
+    const legs = m.kind === "dress" ? SKIN : (m.bottom || "#3d5a9e");
+    rect(cx - 2, feet - 12, 30, 9, legs); rect(cx - 2, feet - 12, 30, 2, "rgba(255,255,255,0.2)"); rect(cx + 26, feet - 16, 8, 15, m.shoe || "#ffffff"); rect(cx + 26, feet - 16, 8, 2, "rgba(0,0,0,0.25)");
+    const sx = cx + 16, sy = feet - h + 26 + (reduceMotion ? 0 : Math.round(Math.abs(Math.sin(timeNow * 3)) * 2));
+    rect(sx, sy, 3, 6, "#6fc3ff"); rect(sx - 1, sy + 4, 5, 3, "#6fc3ff"); rect(sx + 1, sy + 1, 1, 2, "#e6f6ff");
+    return;
+  }
+  draw(feet - h);
+}
+function bdBrick(x, y, col) { rect(x - 4, y - 3, 9, 7, "#1b1426"); rect(x - 3, y - 2, 7, 5, col || "#c8553b"); rect(x - 3, y - 2, 7, 1, "#ee9a82"); rect(x, y - 1, 1, 3, "#8a3a28"); }
+function bdTag(name, cx, y, ticked) {                  // a name tag with a checkbox
+  const w = Math.round(textW(name, 1.5)) + 24;
+  rect(cx - w / 2 - 1, y - 1, w + 2, 15, "#1b1426"); rect(cx - w / 2, y, w, 13, "#f4f1e6");
+  text(name, cx - w / 2 + 4, y + 3, 1.5, "#1b1426", "left");
+  const bx = cx + w / 2 - 14;
+  rect(bx, y + 3, 8, 8, "#1b1426"); rect(bx + 1, y + 4, 6, 6, ticked ? "#2f9e4f" : "#ffffff");
+  if (ticked) { rect(bx + 2, y + 7, 1, 1, "#ffffff"); rect(bx + 3, y + 8, 1, 1, "#ffffff"); rect(bx + 4, y + 7, 1, 1, "#ffffff"); rect(bx + 5, y + 5, 1, 2, "#ffffff"); }
+}
+function bdBubble(str, cx, y, tx) {                    // a speech bubble with a tail pointing down at tx
+  const w = Math.round(textW(str, 1.5)) + 14, x = Math.round(cx - w / 2);
+  rect(x - 1, y - 1, w + 2, 20, "#1b1426"); rect(x, y, w, 18, "#ffffff");
+  text(str, cx, y + 5, 1.5, "#1b1426", "center");
+  for (let i = 0; i < 6; i++) { rect(tx - 5 + i, y + 18 + i, 11 - 2 * i, 1, "#1b1426"); if (i < 5) rect(tx - 4 + i, y + 18 + i, 9 - 2 * i, 1, "#ffffff"); }
+}
+/* the four tower builds: each takes p (0..1) and draws the whole scene's foreground; p = 1 is the finished tower */
+function bdBrickTower(rowsFull, partial, N, rh, x0, w) {
+  const y = BD.GY;
+  if (rowsFull > 0) bricks(x0, y - rowsFull * rh, w, rowsFull * rh, "#b5543a", "#8a3a28", "#d06a50");
+  if (partial > 0 && rowsFull < N) bricks(x0, y - rowsFull * rh - rh, Math.round(w * partial), rh, "#b5543a", "#8a3a28", "#d06a50");
+  if (rowsFull > 0) { rect(x0, y - rowsFull * rh, 2, rowsFull * rh, "#e0907a"); rect(x0 + w - 2, y - rowsFull * rh, 2, rowsFull * rh, "#7a2e22"); }
+  for (let r = 1; r <= rowsFull; r++) rect(x0, y - r * rh, w, 1, "rgba(0,0,0,0.25)");
+}
+function bdTowerTop(done, N, rh, x0, w) {              // battlements, a golden flag and a door once a brick tower is finished
+  if (!done) return;
+  const top = BD.GY - N * rh;
+  rect(x0 - 3, top - 4, w + 6, 4, "#8a3a28");
+  for (let k = 0; k < 5; k++) { rect(x0 + k * 13 - 2, top - 12, 8, 8, "#b5543a"); rect(x0 + k * 13 - 2, top - 12, 8, 1, "#d06a50"); }
+  rect(BD.TX, top - 30, 2, 20, "#8e8e8e"); rect(BD.TX + 2, top - 30, 14, 8, "#ffd95e"); rect(BD.TX + 2, top - 30, 14, 1, "#fff6c8");
+  rect(BD.TX - 8, BD.GY - 22, 16, 22, "#1b1426"); rect(BD.TX - 7, BD.GY - 21, 14, 21, "#4a3322");
+  rect(BD.TX + 20, top + 14, 5, 12, "#1b1426"); rect(BD.TX + 21, top + 15, 3, 10, "#ffe27a"); rect(BD.TX - 25, top + 14, 5, 12, "#1b1426"); rect(BD.TX - 24, top + 15, 3, 10, "#ffe27a");
+}
+function bdTeamwork(p) {                               // 1. Teamwork: a line of three passes bricks up to the tower and each lays a row
+  const N = 12, TX = BD.TX, GY = BD.GY, x0 = TX - 28, rh = 9, rowsF = cl((p - 0.04) / 0.92) * N, k = Math.min(N - 1, Math.floor(rowsF)), u = rowsF - k, full = Math.floor(rowsF + 1e-6);
+  const ORD = [["hero", "rankin", "athean"], ["athean", "hero", "rankin"], ["rankin", "athean", "hero"]], XS = [212, 156, 100];
+  const ph = Math.min(2, Math.floor(k / 4)), within = k - ph * 4 + u;
+  const pos = id => {                                   // slot x for a character, sliding from the previous slot right after a change of front
+    const slot = ORD[ph].indexOf(id), x = XS[slot];
+    if (ph > 0 && within < 0.5 && p < 0.99) { const ps = ORD[ph - 1].indexOf(id); return lp(XS[ps], x, ez(within / 0.5)); }
+    return x;
+  };
+  bdBrickTower(Math.min(N, full), 0, N, rh, x0, 56);
+  bdTowerTop(full >= N, N, rh, x0, 56);
+  [2, 1, 0].forEach(sl => { const id = ORD[ph][sl]; bdChar(id, pos(id), GY, {}); });
+  if (full < N && p < 0.995) {                          // the brick in flight: back -> middle -> front -> the tower
+    const hx = i => pos(ORD[ph][i]) + 24, hy = GY - 40, ty = GY - (k + 1) * rh + 4;
+    let bx, by;
+    if (u < 0.33) { const f = u / 0.33; bx = lp(hx(2), hx(1), f); by = hy - Math.sin(f * Math.PI) * 10; }
+    else if (u < 0.66) { const f = (u - 0.33) / 0.33; bx = lp(hx(1), hx(0), f); by = hy - Math.sin(f * Math.PI) * 10; }
+    else { const f = (u - 0.66) / 0.34; bx = lp(hx(0), x0 + 28, ez(f)); by = lp(hy, ty, ez(f)) - Math.sin(f * Math.PI) * 14; }
+    bdBrick(bx, by);
+    bdBrickTower(full, cl((u - 0.8) / 0.2), N, rh, x0, 56);
+  }
+  if (!reduceMotion && full !== (bdGlobal.rows1 || 0)) { bdGlobal.rows1 = full; if (full > 0) bdTick("tick"); }
+}
+const bdGlobal = {};
+function bdCommit(p, bd) {                             // 2. Commitment: four agreed rows; one stalls, the hero helps without scolding
+  const N = 4, rh = 24, TX = BD.TX, GY = BD.GY, x0 = TX - 28, fin = (a, b) => cl((p - a) / (b - a));
+  const r1 = fin(0.12, 0.24), r2 = fin(0.28, 0.40), r3a = fin(0.44, 0.50) * 0.4, r3b = fin(0.68, 0.80), r4 = fin(0.84, 0.94);
+  const r3 = p < 0.68 ? r3a : 0.4 + 0.6 * r3b;
+  const rows = [r1, r2, r3, r4];
+  for (let r = 0; r < N; r++) {                         // the four agreed rows as ghost outlines, filled in as they are laid
+    const y = GY - (r + 1) * rh;
+    if (p > 0.05) { ctx.globalAlpha = 0.45; frame(x0, y, 56, rh, 1, "#ffffff"); ctx.globalAlpha = 1; text(String(r + 1), x0 - 8, y + 8, 1.5, "#ffffff", "right", "#1b1426"); }
+    if (rows[r] > 0) bricks(x0, y, Math.round(56 * rows[r]), rh, "#b5543a", "#8a3a28", "#d06a50");
+    if (rows[r] >= 1) rect(x0, y, 56, 1, "rgba(0,0,0,0.3)");
+  }
+  bdTowerTop(r4 >= 1, N, rh, x0, 56);
+  const sitting = p >= 0.53 && p < 0.80, walkP = fin(0.53, 0.62), heroX = lp(70, 106, ez(walkP)), moving = walkP > 0 && walkP < 1;
+  const tick = { c: p >= 0.24, l: p >= 0.40, k: p >= 0.80 };
+  const glow = p >= 0.80 && p < 0.93;                  // the heart in the toolkit bar pulses; the shield glows on the hero's arm
+  bd.pulse = glow ? "heart" : null;
+  if (glow) { const a = 0.3 + 0.18 * Math.sin(timeNow * 8); ell(heroX - 27, GY - 30, 26, 28, "rgba(255,217,94," + (a * 0.6).toFixed(2) + ")"); ell(heroX - 27, GY - 30, 18, 20, "rgba(255,240,170," + a.toFixed(2) + ")"); }
+  bdChar("hero", heroX, GY, { walk: moving });
+  bdChar("kylee", 162, GY, { sit: sitting });
+  bdChar("libby", 214, GY, {});
+  bdTag("Chelsea", heroX, GY - 80 - 20, tick.c); bdTag("Kylee", 162, GY - 64 - 20 + (sitting ? 22 : 0), tick.k); bdTag("Libby", 214, GY - 64 - 20, tick.l);
+  if (p >= 0.62 && p < 0.86) bdBubble("We said four rows. I've got you.", 150, 62, heroX + 30);
+  // bricks flying: each row's owner throws one up to the tower as it fills
+  const fly = (a, b, sx0, sy0, row) => { if (p > a && p < b) { const f = (p - a) / (b - a); bdBrick(lp(sx0, x0 + 28, ez(f)), lp(sy0, GY - (row + 1) * rh + 8, ez(f)) - Math.sin(f * Math.PI) * 18); } };
+  fly(0.12, 0.24, heroX + 24, GY - 44, 0); fly(0.28, 0.40, 238, GY - 44, 1); fly(0.44, 0.50, 186, GY - 44, 2); fly(0.68, 0.80, 186, GY - 30, 2); fly(0.84, 0.94, heroX + 24, GY - 44, 3);
+  if (p >= 0.62 && p < 0.68) { const f = (p - 0.62) / 0.06; bdBrick(lp(heroX + 24, 150, ez(f)), GY - 44 - Math.sin(f * Math.PI) * 10, "#d06a50"); }       // the hero hands her a brick
+}
+function bdStone(rows, fix, x0, w) {                   // big grey stone blocks: a clearly different look from the bricks
+  const rh = 12, GY = BD.GY;
+  for (let r = 0; r < rows; r++) for (let c = -1; c < 3; c++) {
+    let bx = x0 + c * 28 + (r % 2) * 14, bw = 28, y = GY - (r + 1) * rh;
+    if (bx < x0) { bw -= x0 - bx; bx = x0; }
+    if (bx + bw > x0 + w) bw = x0 + w - bx;
+    if (bw <= 2) continue;
+    if (r === 4 && c === 0 && fix < 1) { continue; }
+    rect(bx, y, bw, rh, "#4a4f5c"); rect(bx + 1, y + 1, bw - 2, rh - 2, "#a9aebd"); rect(bx + 1, y + 1, bw - 2, 2, "#d3d7e2"); rect(bx + 1, y + rh - 3, bw - 2, 2, "#7d8394");
+    if ((r * 3 + c) % 3 === 0) rect(bx + 6, y + 5, 4, 1, "#8f94a6");
+  }
+}
+function bdIntegrity(p, bd) {                          // 3. Integrity: level, replace the crooked block, an inspection and a green stamp
+  const TX = BD.TX, GY = BD.GY, x0 = TX - 28, rh = 12, fin = (a, b) => cl((p - a) / (b - a)), N = 9;
+  const rise = Math.min(N, Math.floor(fin(0.0, 0.2) * N + 1e-6) + (p > 0.2 ? 0 : 0)), rows = p >= 0.2 ? N : rise;
+  const swap = fin(0.5, 0.64), outP = fin(0.5, 0.57), inP = fin(0.57, 0.64);
+  const row4y = GY - 5 * rh;
+  bdStone(rows, swap >= 1 ? 1 : swap > 0 && swap < 0.5 ? 0 : 0, x0, 56);
+  if (rows >= 5) {                                      // the crooked block (row 5, left), then its straight replacement
+    if (swap < 1) {
+      ctx.save(); ctx.translate(x0 + 14, row4y + 6 - outP * 18); ctx.rotate(0.14 * (1 - outP * 0)); ctx.globalAlpha = 1 - outP;
+      rect(-14, -6, 28, 12, "#4a4f5c"); rect(-13, -5, 26, 10, "#a9aebd"); rect(-13, -5, 26, 2, "#d3d7e2"); rect(-13, 3, 26, 2, "#7d8394");
+      ctx.restore(); ctx.globalAlpha = 1;
+    }
+    if (inP > 0) { const bx = x0, y = row4y; rect(bx - (1 - ez(inP)) * 40, y, 28, rh, "#4a4f5c"); rect(bx + 1 - (1 - ez(inP)) * 40, y + 1, 26, rh - 2, "#a9aebd"); rect(bx + 1 - (1 - ez(inP)) * 40, y + 1, 26, 2, "#d3d7e2"); rect(bx + 1 - (1 - ez(inP)) * 40, y + rh - 3, 26, 2, "#7d8394"); }
+  }
+  if (rows >= N) {                                      // battlements + a flag once the stone tower stands
+    const top = GY - N * rh;
+    rect(x0 - 3, top - 4, 62, 4, "#4a4f5c");
+    for (let k = 0; k < 5; k++) { rect(x0 + k * 13 - 2, top - 12, 8, 8, "#4a4f5c"); rect(x0 + k * 13 - 1, top - 11, 6, 6, "#a9aebd"); }
+    rect(TX, top - 30, 2, 20, "#8e8e8e"); rect(TX + 2, top - 30, 14, 8, "#ffd95e");
+  }
+  const walkP = fin(0.2, 0.34), heroX = lp(120, 214, ez(walkP)), moving = walkP > 0 && walkP < 1;
+  const slideOut = fin(0.64, 0.7), treyIn = fin(0.66, 0.8), treyX = lp(-30, 214, ez(treyIn));
+  const heroX2 = lp(heroX, 150, ez(slideOut));
+  if (p >= 0.66) bdChar("trey", treyX, GY, { walk: treyIn < 1 });
+  bdChar("hero", p >= 0.64 ? heroX2 : heroX, GY, { walk: moving || (slideOut > 0 && slideOut < 1) });
+  if ((p >= 0.34 && p < 0.7) && heroX2 > 200) {         // the spirit level held flat against the tower
+    const crooked = p < 0.64, ly = row4y - 4, lx = TX - 36;
+    rect(lx, ly, 44, 8, "#1b1426"); rect(lx + 1, ly + 1, 42, 6, "#f2b705"); rect(lx + 1, ly + 1, 42, 1, "#ffe27a");
+    rect(lx + 17, ly + 2, 10, 4, "#cfe9d6"); const bub = crooked ? 3 : 0; ell(lx + 22 + bub, ly + 4, 2, 2, crooked ? "#d2051e" : "#2f9e4f");
+    rect(lx - 12, ly + 3, 12, 3, "#e0ad7f");
+    if (crooked && p >= 0.44 && p < 0.56 && (reduceMotion || Math.sin(timeNow * 14) > -0.2)) text("!", x0 + 14, row4y - 16, 3, "#d2051e", "center", "#ffffff");
+  }
+  if (p >= 0.8) {                                       // Trey's magnifying glass over the replaced block
+    const gx = x0 + 14 + (p < 0.86 ? (0.86 - p) * 40 : 0), gy = row4y - 2;
+    rect(treyX + 20, GY - 52, 22, 3, "#8a5a00"); rect(gx - 9, gy - 9, 18, 18, "#1b1426"); ell(gx, gy, 8, 8, "#1b1426"); ell(gx, gy, 6, 6, "rgba(190,230,255,0.55)"); rect(gx - 4, gy - 4, 3, 1, "#ffffff");
+    const hx0 = treyX + 40, hy0 = GY - 52; for (let i = 0; i <= 12; i++) rect(lp(hx0, gx + 6, i / 12), lp(hy0, gy + 6, i / 12), 3, 3, "#5a3f2a");
+  }
+  if (p >= 0.88) {                                      // the green INSPECTED stamp slams onto the tower
+    const f = reduceMotion ? 1 : cl((p - 0.88) / 0.06), sc = lp(2.6, 1, ez(f)), cxs = TX, cys = GY - 70;
+    ctx.save(); ctx.translate(cxs, cys); ctx.rotate(-0.18); ctx.scale(sc, sc); ctx.globalAlpha = Math.min(1, f * 2);
+    rect(-33, -9, 66, 18, "#0f5a2a"); rect(-31, -7, 62, 14, "#2fb35a"); rect(-31, -7, 62, 2, "#6fe08e");
+    text("INSPECTED", 0, -4, 1.5, "#ffffff", "center", "#0f5a2a"); ctx.restore(); ctx.globalAlpha = 1;
+    if (!reduceMotion && p < 0.9 && !bd.stamped) { bd.stamped = true; burst(cxs, cys, "#6fe08e", 14); flash = 0.15; }
+  }
+}
+function bdSteel(p, bd) {                              // 4. Courage: the first girder out over empty air, then steel and sparks climbing
+  const TX = BD.TX, GY = BD.GY, fin = (a, b) => cl((p - a) / (b - a));
+  for (let i = 0; i < 12; i++) rect(236, GY - 20 + i * 4, W - 236, 4, "rgba(27,37,64," + Math.min(1, i / 8).toFixed(2) + ")");   // the void: no ground under the girder, fading down into darkness
+  rect(236, GY + 28, W - 236, H - GY - 28, "#1b2540");
+  for (let i = 0; i < 6; i++) rect(236, GY + 8 + i * 4, W - 236, 2, "rgba(60,80,140," + (0.35 - i * 0.04).toFixed(2) + ")");
+  ell(300, GY + 24, 60, 12, "rgba(255,150,60,0.10)");
+  rect(222, GY, 16, H - GY, "#6a5a48"); rect(222, GY, 4, H - GY, "#8a7a64"); rect(234, GY, 4, 40, "#4a3c2c");                  // the cliff edge
+  const out = ez(fin(0.1, 0.3)), gl = lp(0, 76, out), gx = 236, gyy = GY - 8;
+  const walkP = fin(0.0, 0.1), heroX = lp(120, 200, ez(walkP));
+  bdChar("hero", p < 0.1 ? heroX : 200, GY, { walk: p < 0.1 });
+  if (gl > 0) {                                          // the first girder, sliding out into thin air
+    const bounce = p > 0.3 && p < 0.36 && !reduceMotion ? Math.round(Math.sin((p - 0.3) * 160) * 2) : 0;
+    rect(gx - 4, gyy - 1 + bounce, gl + 4, 10, "#1b1426"); rect(gx - 3, gyy + bounce, gl + 3, 8, "#9aa4b8"); rect(gx - 3, gyy + bounce, gl + 3, 2, "#d3d9e6"); rect(gx - 3, gyy + 6 + bounce, gl + 3, 2, "#6a738a");
+    for (let i = 0; i < gl; i += 8) rect(gx + i, gyy + 3 + bounce, 2, 2, "#5a6278");
+  }
+  const L = 6, lh = 18, built = fin(0.34, 0.96) * L, full = Math.floor(built + 1e-6), partial = built - full, bx0 = TX - 24, bx1 = TX + 24, by0 = gyy;
+  const level = (i, k) => {                              // one level of the steel frame: two posts and an X brace
+    const yb = by0 - i * lh, ht = Math.round(lh * k);
+    rect(bx0 - 2, yb - ht, 5, ht, "#1b1426"); rect(bx0 - 1, yb - ht, 3, ht, "#c9ced9"); rect(bx1 - 2, yb - ht, 5, ht, "#1b1426"); rect(bx1 - 1, yb - ht, 3, ht, "#c9ced9");
+    if (k >= 1) { for (let q = 0; q < 46; q += 2) { const yy = Math.round(q * lh / 46); rect(bx0 + 2 + q, yb - lh + yy, 2, 2, "#8a93a8"); rect(bx1 - 4 - q, yb - lh + yy, 2, 2, "#8a93a8"); } rect(bx0 - 2, yb - lh, bx1 - bx0 + 5, 3, "#1b1426"); rect(bx0 - 1, yb - lh + 1, bx1 - bx0 + 3, 1, "#e6e9f0"); }
+  };
+  for (let i = 0; i < Math.min(L, full); i++) level(i, 1);
+  if (full < L && partial > 0) level(full, partial);
+  if (p >= 0.995 && !reduceMotion) { /* finished */ }
+  const topY = by0 - Math.min(L, built) * lh, workX = (full % 2 ? bx1 : bx0);
+  const prog = fin(0.34, 0.96);
+  if (p > 0.3) { ell(TX, topY + 20, 70, 60, "rgba(255,150,40," + (0.05 + 0.12 * prog).toFixed(3) + ")"); ell(TX, topY + 10, 40, 36, "rgba(255,200,90," + (0.08 + 0.12 * prog).toFixed(3) + ")"); }
+  if (p > 0.34 && p < 0.97) {                            // welding sparks at the working point
+    const cols = ["#fff6c8", "#ffd95e", "#ff9a2a", "#ffffff"];
+    for (let i = 0; i < 16; i++) {
+      const ph = (reduceMotion ? i * 0.37 : timeNow * 3 + i * 0.37) % 1, ang = i * 2.4 + Math.floor(timeNow * 6) * 0.7, rr = ph * 22;
+      const sxp = workX + Math.cos(ang) * rr, syp = topY - 2 + Math.sin(ang) * rr * 0.6 + ph * ph * 16;
+      ctx.globalAlpha = 1 - ph; rect(sxp, syp, 2, 2, cols[i % 4]); ctx.globalAlpha = 1;
+    }
+    rect(workX - 3, topY - 4, 7, 7, "#fffbe0"); ell(workX, topY - 1, 6, 6, "rgba(255,255,255,0.55)");
+    if (!reduceMotion && Math.floor(timeNow * 9) !== bdGlobal.weld) { bdGlobal.weld = Math.floor(timeNow * 9); bdTick("weld"); }
+  }
+  if (p >= 0.995) { const top = topY; rect(TX, top - 22, 2, 22, "#8e8e8e"); rect(TX + 2, top - 22, 14, 8, "#ffd95e"); rect(TX + 2, top - 22, 14, 1, "#fff6c8"); }
+}
+function bdMini(i, cx, base, k) {                      // a finished tower, small, for the background / the castle view
+  ctx.save(); ctx.translate(cx, base); ctx.scale(k, k); ctx.translate(-BD.TX, -BD.GY);
+  if (i === 0) { bdBrickTower(12, 0, 12, 9, BD.TX - 28, 56); bdTowerTop(true, 12, 9, BD.TX - 28, 56); }
+  else if (i === 1) { bdBrickTower(4, 0, 4, 24, BD.TX - 28, 56); bdTowerTop(true, 4, 24, BD.TX - 28, 56); }
+  else if (i === 2) { bdStone(9, 1, BD.TX - 28, 56); const top = BD.GY - 108; rect(BD.TX - 31, top - 4, 62, 4, "#4a4f5c"); rect(BD.TX, top - 30, 2, 20, "#8e8e8e"); rect(BD.TX + 2, top - 30, 14, 8, "#ffd95e"); }
+  else { for (let q = 0; q < 6; q++) { const yb = BD.GY - 8 - q * 18; rect(BD.TX - 26, yb - 18, 5, 18, "#c9ced9"); rect(BD.TX + 22, yb - 18, 5, 18, "#c9ced9"); rect(BD.TX - 26, yb - 18, 53, 3, "#9aa4b8"); } rect(BD.TX - 28, BD.GY - 8, 56, 8, "#9aa4b8"); rect(BD.TX, BD.GY - 128, 2, 22, "#8e8e8e"); rect(BD.TX + 2, BD.GY - 128, 14, 8, "#ffd95e"); }
+  ctx.restore();
+}
+function drawBuild(F) {
+  const c = card, bd = c.bd, T = buildTimes(F), t = bd.t, TW = F.build.towers, R = reduceMotion, GY = BD.GY, END = BD.END;
+  let cur = 0; T.starts.forEach((s, i) => { if (t >= s) cur = i; });
+  const e = t - T.total;                                 // seconds into the castle part
+  if (e >= END.land && !won[c.i]) { won[c.i] = true; flash = 0.3; burst(W / 2, 112, "#ffd95e", 20); burst(W / 2, 112, "#ffffff", 10); }
+  if (e >= END.done && !bd.done) bd.done = true;
+  const showCastle = e >= (R ? 0 : END.cut / 2);
+  if (!showCastle) {
+    castleBackdrop(0, 26, W, H - 26);
+    for (let i = 0; i < cur; i++) bdMini(i, 34 + i * 40, GY - 30, 0.45);                         // the finished towers stand far off
+    const p = R ? (t >= T.starts[cur] ? 1 : 0) : cl((t - T.starts[cur]) / TW[cur].secs);
+    if (cur === 0) bdTeamwork(p); else if (cur === 1) bdCommit(p, bd); else if (cur === 2) bdIntegrity(p, bd); else bdSteel(p, bd);
+    if (cur !== 1) bd.pulse = null;
+    if (!R) {                                            // dark between towers: fade out at the end of a tower, fade in at the start of the next
+      const gapA = cur < TW.length - 1 ? cl((t - T.ends[cur]) / (F.build.gap * 0.6)) : cl(e / (END.cut / 2));
+      const inA = 1 - cl((t - T.starts[cur]) / 0.5);
+      const a = Math.max(gapA, cur > 0 ? inA : 0);
+      if (a > 0) { ctx.fillStyle = "rgba(6,4,12," + (a * 0.92).toFixed(3) + ")"; ctx.fillRect(0, 26, W, H - 26); }
+    }
+  } else {                                               // the castle: the four towers flank it, the hard hat drops on the keep, the toolkit lights up
+    castleBackdrop(0, 26, W, H - 26);
+    for (let i = 0; i < 4; i++) bdMini(i, i < 2 ? 36 + i * 44 : 296 + (i - 2) * 44, GY - 2, 0.55);
+    ctx.save(); ctx.translate(W / 2, GY); ctx.scale(2, 2); drawCastle(0, 0); ctx.restore();
+    const keepY = 110, hk = 1.7, fallP = R ? 1 : cl((e - END.hat) / (END.land - END.hat));
+    if (e >= END.hat || R) {
+      const bounce = fallP >= 1 && !R ? Math.max(0, Math.sin((e - END.land) * 14) * 5 * Math.exp(-(e - END.land) * 3)) : 0, hy = lp(-50, keepY, fallP * fallP) - bounce;
+      toolArt("hat", W / 2 - 12 * hk, hy - 20 * hk, hk);
+    }
+    const nL = R ? (e >= 0 ? 7 : 0) : (e >= END.lights ? Math.min(7, Math.floor((e - END.lights) / END.gap) + 1) : 0);
+    bd.lights = nL; bd.fresh = !R && nL > 0 && nL < 7;
+    if (!R && e < END.cut) { const a = cl(1 - (e - END.cut / 2) / (END.cut / 2)); if (a > 0) { ctx.fillStyle = "rgba(6,4,12," + (a * 0.92).toFixed(3) + ")"; ctx.fillRect(0, 26, W, H - 26); } }
+  }
+  const ci = e >= 0 ? TW.length - 1 : cur;                // the caption of the tower being built, fading in; it stays until the next tower starts
+  const ca = R ? 1 : cl((t - T.starts[ci]) / 0.6);
+  if (ca > 0) { ctx.globalAlpha = ca; lightLabel(TW[ci].caption, W / 2, 34, 1.5, "center"); ctx.globalAlpha = 1; }
+  if (bd.done) lightLabel(F.build.done, W / 2, 196, 1.5, "center");                              // the only prompt: once it has all finished
+  rect(213, 0, W - 213, 26, "#07060c");                    // no controls bar (no key prompts) while the sequence runs; the timer is drawn over this afterwards
+  drawToolkitBar();                                      // the bar stays on top, with the heart pulse and the lights
+}
 function sceneFinale(st, sx, sy, sw, sh) {
   const F = st.finale, c = card, t = c.st, y0 = sy + sh - 22;
   if (c.stage >= 3) { sceneCastle(sx, sy, sw, sh); return; }
   castleBackdrop(sx, sy, sw, sh);
   if (c.stage === 0) {                                                       // four value towers light up one after another
     F.values.forEach((name, i) => {
-      const bx = sx + 176 + i * 46, h = [44, 56, 56, 44][i], lit = reduceMotion || t >= 0.5 + i * 0.7, top = y0 - h;
+      const bx = sx + 176 + i * 46, h = [44, 56, 56, 44][i], lit = false, top = y0 - h;      // unbuilt until the build sequence has run
       if (lit) ell(bx + 15, top + 12, 30, 28, "rgba(255,217,94,0.20)");
       rect(bx - 1, top - 1, 32, h + 1, "#1b1426"); rect(bx, top, 30, h, lit ? "#d4d0bd" : "#7d8196");
       for (let yy = top + 6; yy < y0; yy += 7) rect(bx, yy, 30, 1, lit ? "#b3ae98" : "#646880");
@@ -2485,7 +2764,6 @@ function drawCard() {
     typeStart("f" + c.stage + "|" + (c.g ? c.g.mode : ""));
     if (c.stage === 0) {
       wrap(st.line, 40).forEach((l, j) => put(l, 6 + j * 12));
-      F.values.forEach((v, i) => { if (reduceMotion || c.st >= 0.5 + i * 0.7) { const was = TYPE.on; TYPE.on = false; text(v, x + 10 + (i % 2) * 150, ty + 24 + (i >> 1) * 12, 1.5, "#8a5a00", "left"); TYPE.on = was; } });   // each value appears as its tower lights
     }
     else if (c.stage === 1) {
       if (c.g.mode === 0) put(F.zoomIn, 6, "#b01428");                                 // Enter is the only key that works here
@@ -2504,8 +2782,7 @@ function drawCard() {
       }
     }
     typeEnd();
-    if (!reduceMotion && c.stage === 0) c.tdone = c.tdone && c.st >= 0.5 + (F.values.length - 1) * 0.7 + 0.3;      // every tower has lit and named its value
-    if (!reduceMotion && c.stage === 3) c.tdone = c.tdone && c.st >= FT.done + 0.1;                                  // the quote has typed and every toolkit slot has lit
+    if (c.stage === 0 && c.bd) c.tdone = true;                                                                        // while the build runs, Space skips a tower and is never locked
   } else {
     let rows = st.lines.flatMap(l => /^\s*- /.test(l) ? [l] : wrap(l, 40)), accent = -1;      // each configured line gets its own row ("- " = bullet, "  - " = indented sub-bullet)
     if (st.script) {                                         // the scripted card shows its prompt in the last row
@@ -2598,6 +2875,7 @@ function drawCard() {
   }
   if (st.finale && c.stage === 1) drawGlobeZoom(st.finale);   // the zoomed-in globe covers the whole screen
   if (st.finale && c.stage === 4) drawOutro(st.finale);       // so does the dark finale
+  if (st.finale && c.stage === 0 && c.bd) drawBuild(st.finale);   // and the build sequence
   if (st.battle && c.phase === 2 && c.bt && !reduceMotion) {                                   // the second IMPORTANT DECISION (Undergrad: grad school, but where?)
     const k = beatsOf(st).indexOf("decide");
     if (k >= 0 && c.bt[k] != null) { const up = bu(c, k); if (up >= 0 && up < DECISION.question) drawDecision(up, "dec2"); }
@@ -2975,6 +3253,7 @@ function tick(now) {
     }
   }
   if (card) { card.anim += dt; card.tt = (card.tt || 0) + dt; }
+  if (card && card.bd && !card.bd.paused && !card.bd.done) card.bd.t += dt;                         // the build sequence's own clock (P pauses it)
   if (state === S.INTRO) intro.t += dt;
   if (state === S.MEET) meet.t += dt;
   if (card) {
