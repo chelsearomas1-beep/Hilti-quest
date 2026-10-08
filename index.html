@@ -55,13 +55,13 @@ const CONFIG = {
       art: "school", tools: [], sprite: "germ", weapon: "sanitizer", hits: 1, script: "germ" },
 
     { title: "UNDERGRAD (D1 GOLF)",
-      boss: "THE 5 AM ALARM", line: "I juggled it all:\n- VP of SAAC\n- Daily practices\n- 6AM workouts\n- Rigorous academics\n- Weekly travel", toolkit: "Golf, time management, community.",
-      art: "campus", tools: ["club", "clock", "heart"], team: 2, sprite: "alarm", weapon: "club",
+      boss: "THE 5 AM ALARM", line: "I juggled it all:\n- VP of SAAC\n- 6AM workouts\n- Rigorous academics", toolkit: "Golf, time management, community.",
+      art: "campus", tools: ["club", "clock", "heart"], team: 2, sprite: "alarm", weapon: "club", hits: 2,
       mystery: { label: "TEXAS TECH", title: "TEXAS TECH (D1 GOLF)", logo: "texas_tech_logo.jpeg",
-                 perks: ["Team culture", "Top 25 women's golf team", "Vibrant college town", "Full-ride scholarship"] },
+                 perks: ["Team culture", "Full-ride scholarship"] },
       award: { title: "CAREER MILESTONE", logo: "the_hartford_logo.svg",
                text: "Chelsea joins the Surety Bond team at The Hartford as a Summer Underwriting Analyst" },
-      beats: ["logo", "medal", "tech10", "proud", "next", "liked", "grad", "decide"],      // after the tools land, each Space moves to the next beat (the Hartford award, the proudest achievement, the "what next?" questions...)
+      beats: ["medal", "tech10", "proud", "grad", "decide"],      // after the tools land, each Space moves to the next beat (the Hartford award, the proudest achievement, the "what next?" questions...)
       story: {
         proud: { title: "PROUDEST ACHIEVEMENT", logo: "tech10_logo.svg", color: true, w: 48, q: 1,
                  text: "Awarded to 10 graduating seniors that embody the four principles of Red Raider Spirit",
@@ -75,15 +75,14 @@ const CONFIG = {
     { title: "BOOTH MASTERS IN FINANCE",
       award: { title: "CAREER MILESTONE", logo: "BC_Partners_logo.svg", color: true,
                text: "Chelsea joins the Private Equity team at BC Partners, analyzing the market for a potential buy-and-build investment" },      // see the Undergrad stop
-      boss: "FINALS", line: "Community powers the fight.\nLate night study groups with friends\nCollaboration over competition\nLet's make each other better", toolkit: "Analytical thinking, leadership.",
-      art: "hall", sprite: "exam", weapon: "heart", party: "beside", power: "heart", friends: ["boothDark", "boothLight"],
+      boss: "FINALS", line: "Community powers the fight.\nCollaboration over competition", toolkit: "Analytical thinking, leadership.",
+      art: "hall", sprite: "exam", weapon: "heart", hits: 2, party: "beside", power: "heart", friends: ["boothDark", "boothLight"],
       tools: ["glasses", { tool: "shield", note: "Leadership development certificate" }] },
 
     { title: "MASKED RIDER CAPITAL",
       pre: { logo: "masked_rider_capital_logo.jpeg", color: true, text: "Chelsea joins the investment team at Masked Rider Capital as a Summer Analyst" },      // the stop opens with this, then Space brings the twister in
-      award: { title: "CAREER MILESTONE", logo: "masked_rider_capital_logo.jpeg", color: true, text: "I \u2665 cash flows" },
       boss: "THE ROLL-UP TWISTER", line: "Oh no! A 5-company roll-up acquisition is headed your way.\nWeapon: Excel.", toolkit: "Financial modeling, private markets.",
-      art: "office", friends: ["mrcGirl", "mrcTall"], tools: ["excel"], sprite: "tornado", weapon: "excel" },
+      art: "office", friends: ["mrcGirl", "mrcTall"], tools: ["excel"], sprite: "tornado", weapon: "excel", hits: 2 },
 
     { title: "HILTI",
       boss: "", line: "Four values light the way.", toolkit: "",       // line = the first screen (the four value towers)
@@ -94,9 +93,9 @@ const CONFIG = {
           gap: 0.7,                                                      // seconds of dark between towers
           towers: [                                                      // caption (under about 12 words) and how long each tower takes, in seconds
             { name: "Teamwork",   secs: 5, caption: "Teamwork: we build it together." },
-            { name: "Commitment", secs: 18, caption: "Commitment: Keeping everyone accountable" },
+            { name: "Commitment", secs: 15, caption: "Commitment: Keeping everyone accountable" },
             { name: "Integrity",  secs: 11, caption: "Integrity: Own it, Fix it" },
-            { name: "Courage",    secs: 16, caption: "Courage: To build differently" }
+            { name: "Courage",    secs: 13, caption: "Courage: To build differently" }
           ],
           done: "Press Enter to continue."                               // shown only once the hat has landed and the toolkit has lit
         },
@@ -680,6 +679,7 @@ function advance() {                          // SPACE (or a click): next / atta
         if (g.mode === 1 && g.z >= 1 && !g.zd) { if (g.rot) globeFinishRot(); else if (g.placed < st.finale.cities.length) startRot(st.finale); }
         else if (g.mode === 2) { card.stage++; card.st = 0; }
       }
+      else if (card.stage === 2) { card.stage = 4; card.st = 0; }      // after the three goals the quote screen ("Travel is the best educator.") is skipped: straight to the dark finale
       else if (card.stage < 3) { card.stage++; card.st = 0; }
       else if (card.stage === 3) { card.stage = 4; card.st = 0; }   // 3: the quote; Space goes on to the dark finale
       else closeCard();                                              // 4: the dark "Congratulations" finale; Space ends the quest once its text is done
@@ -3198,6 +3198,7 @@ function plaqueNow(c, st) {                          // which plaque stands wher
   for (let k = 0; k < n; k++) {
     const id = ids[k], u = beatU(c, st, k);
     if (id === "logo") res = { kind: "logo", cfg: st.award, t0: 0, u };
+    else if (id === "medal" && !ids.includes("logo")) res = { kind: "logo", cfg: st.award, t0: AWARD.start, u };      // no separate logo beat: the company logo pops in together with its medal
     else if (id === "tech10") res = { kind: "logo", cfg: S0.proud, t0: 0, u };                                 // the Tech 10 award is introduced first; the medal comes after
     else if (id === "next") res = { kind: "q", t0: 0, u };
     else if (id === "decide" && u >= 2.7) res = { kind: "logo", cfg: S0.decide, t0: 2.7, u };

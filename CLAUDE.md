@@ -371,3 +371,12 @@ Globe labels: Shanghai: "Shanghai: my mom's home"; Munich: "Munich: my partner's
 - Faster transitions: the dark finale is quicker (`OUTRO`: fade to black 0.7 s, "CONGRATULATIONS!!" at 0.8 s, "Toolkit complete." at 2.0 s, "Or is it?" at 3.4 s over 1.1 s, closing line at 5.0 s); the IMPORTANT DECISION banner (`DECISION`: 0.3 / 0.65 s words, out at 2.1 s, the question or the Booth logo at 2.7 s; the Booth "decide" beat unlocks keys at 3.4 s); the career-milestone medal (`AWARD`: pop 0.45 s, hold 1.5 s, out 0.35 s); the gap between towers is 0.7 s; the hat drop and toolkit lights at the end of the build are about 20% quicker (`finaleTimes`).
 - Teamwork tower (now 5 s): three quick passes, one brick each. Each pass sends one brick back -> middle -> front -> tower (the line shifts so someone else starts every time), and each brick that lands adds a section of four rows (12 rows in all). Reduced motion: the finished tower.
 - The dark finale is faster still (`OUTRO`: black at 0.5 s, "CONGRATULATIONS!!" 0.6 s, "Toolkit complete." 1.3 s, "Or is it?" 2.0 s over 0.8 s, closing line 3.1 s).
+
+## Config trim (shorter run)
+
+- Undergrad: `beats` is now `["medal", "tech10", "proud", "grad", "decide"]` (the `logo`, `next` and `liked` beats are gone; the `story.next` / `story.liked` entries are unused). Texas Tech perks are "Team culture" and "Full-ride scholarship"; the bullet list is VP of SAAC, 6AM workouts, Rigorous academics (3 bullets sit in the two-column grid). Without a separate `logo` beat the Hartford logo plaque pops in together with its medal (`plaqueNow`: a `medal` beat with no `logo` beat in the list places the company logo, `t0 = AWARD.start`), and the caption "Chelsea joins the Surety Bond team..." shows from the same press; the plaque stays until the Tech 10 plaque replaces it.
+- Booth: the Finals line is "Community powers the fight." / "Collaboration over competition".
+- Masked Rider Capital: no `award`; the stop keeps its `pre` logo opener, and after the tools land Enter closes the card.
+- `hits: 2` on the Undergrad, Booth and Masked Rider Capital bosses (the health bar drops by half per hit).
+- Build: Commitment 15 s, Courage 13 s.
+- The "Travel is the best educator." screen (finale stage 3) is skipped: after the three goals (stage 2) Enter goes straight to the dark finale (stage 4). `finale.quote` is no longer shown.
